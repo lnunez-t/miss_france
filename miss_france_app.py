@@ -13,7 +13,7 @@ CANDIDATES = [
     "Alsace", "Aquitaine", "Auvergne", "Bourgogne", "Bretagne", "Centre-Val de Loire",
     "Champagne-Ardenne", "Corse", "Côte d'Azur", "Franche-Comté", "Guadeloupe", "Guyane",
     "Île-de-France", "Languedoc", "Limousin", "Lorraine", "Martinique", "Mayotte",
-    "Midi-Pyrénées", "Nord-Pas-de-Calais", "Normandie", "Pays de la Loire", "Picardie",
+    "Midi-Pyrénées", "Nord-Pas-de-Calais", "Normandie", "Nouvelle Calédonie", "Pays de la Loire", "Picardie",
     "Poitou-Charentes", "Provence", "Réunion", "Rhône-Alpes", "Roussillon",
     "Tahiti"
 ]
@@ -22,7 +22,7 @@ CANDIDATES_IMG = [
     "alsace", "aquitaine", "auvergne", "bourgogne", "bretagne", "centre-val-de-loire",
     "champagne-ardenne", "corse", "cote-azur", "franche-comte", "guadeloupe", "guyane",
     "ile-de-france", "languedoc", "limousin", "lorraine", "martinique", "mayotte",
-    "midi-pyrenees", "nord-pas-de-calais", "normandie", "pays-de-la-loire", "picardie",
+    "midi-pyrenees", "nord-pas-de-calais", "normandie", "nouvelle-caledonie", "pays-de-la-loire", "picardie",
     "poitou-charentes", "provence", "reunion", "rhone-alpes", "roussillon",
     "tahiti"
 ]
