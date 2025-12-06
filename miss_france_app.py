@@ -131,16 +131,14 @@ with tab_notation:
     else:
         candidate_to_rate = st.selectbox("Choisissez la candidate à noter :", CANDIDATES)
         bikini_score = st.slider("Score Bikini", 0, 10, 5)
-        costume_score = st.slider("Score Costume", 0, 10, 5)
         talk_score = st.slider("Score Talk", 0, 10, 5)
         if st.button("Enregistrer mes notes"):
             vote = {
                 "Membre": user_name,
                 "Région": candidate_to_rate,
                 "Bikini": bikini_score,
-                "Costume": costume_score,
                 "Talk": talk_score,
-                "Total": bikini_score + costume_score + talk_score
+                "Total": bikini_score + talk_score
             }
             if append_vote_to_sheet("Notes", vote):
                 st.success(f"Notes enregistrées pour {candidate_to_rate} ! ✅")
