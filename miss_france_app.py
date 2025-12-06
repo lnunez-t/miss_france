@@ -1,11 +1,14 @@
 import streamlit as st
 import pandas as pd
-import os # Nécessaire pour vérifier l'existence des fichiers si besoin, bien que st.image gère l'absence de fichier.
+import traceback
+import os
+import gspread
+from google.oauth2.service_account import Credentials
 
-# --- CONFIGURATION ---
+# --- CONFIGURATION PAGE ---
 st.set_page_config(page_title="Miss France 2026 👑", layout="wide", page_icon="👑")
 
-# List of 30 Candidates (Based on 2025 regions)
+# --- CONSTANTES ---
 CANDIDATES = [
     "Alsace", "Aquitaine", "Auvergne", "Bourgogne", "Bretagne", "Centre-Val de Loire",
     "Champagne-Ardenne", "Corse", "Côte d'Azur", "Franche-Comté", "Guadeloupe", "Guyane",
@@ -24,235 +27,199 @@ CANDIDATES_IMG = [
     "tahiti"
 ]
 
-# Initialize Session State to store votes in memory
+# --- SESSION STATE INIT ---
 if 'family_votes' not in st.session_state:
     st.session_state['family_votes'] = {}
 if 'official_results' not in st.session_state:
     st.session_state['official_results'] = {"top12": [], "top5": [], "winner": None}
 
-# --- SIDEBAR: USER LOGIN ---
-# Assurez-vous d'avoir le fichier logo-MF.png dans le même dossier que votre script
-logo_path = f"logo-MF.png"
-try:
-    st.sidebar.image("public/logo-MF.png", width=150)
-except FileNotFoundError:
-    st.sidebar.info("Mettez votre fichier 'logo-MF.png' à la racine.")
-
+# --- SIDEBAR ---
 st.sidebar.title("Nouvel utilisateur 👤")
 user_name = st.sidebar.text_input("Entrez votre prénom:", placeholder="ex: Sandra, Jolie Maman")
+
+# --- LOGO ---
+logo_path = "public/logo-MF.png"
+if os.path.exists(logo_path):
+    st.sidebar.image(logo_path, width=150)
+else:
+    st.sidebar.info("Mettez votre fichier 'logo-MF.png' dans /public")
+
+# --- SHEET CONFIG ---
+SHEET_ID = None
+try:
+    SHEET_ID = st.secrets["gsheet"]["sheet_id"]
+except KeyError:
+    st.warning("ID de la feuille Google Sheet non configuré dans secrets.toml")
+
+def get_gspread_client():
+    """Renvoie un client gspread si les credentials sont valides, sinon None"""
+    try:
+        creds_dict = st.secrets["gcp_service_account"]
+        creds = Credentials.from_service_account_info(
+            creds_dict,
+            scopes=["https://www.googleapis.com/auth/spreadsheets"]
+        )
+        client = gspread.authorize(creds)
+        return client
+    except Exception as e:
+        st.warning("Impossible de se connecter à Google Sheets : vérifie vos secrets.")
+        st.text(str(e))
+        return None
+
+# --- UTILS ---
+def append_vote_to_sheet(sheet_name, row_dict):
+    client = get_gspread_client()
+    if not client or not SHEET_ID:
+        st.error("Impossible d'enregistrer le vote. Feuille ou client manquant.")
+        return False
+    try:
+        sheet = client.open_by_key(SHEET_ID).worksheet(sheet_name)
+        headers = sheet.row_values(1)
+        values = [row_dict.get(h, "") for h in headers]
+        sheet.append_row(values)
+        return True
+    except Exception as e:
+        st.error(f"Erreur lors de l'écriture dans {sheet_name}: {e}")
+        return False
+
+def load_sheet_csv(sheet_id, gid=0):
+    if not sheet_id:
+        return pd.DataFrame()
+    url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+    try:
+        df = pd.read_csv(url)
+        return df
+    except Exception as e:
+        st.warning("Impossible de charger la Google Sheet via CSV.")
+        st.text(str(e))
+        return pd.DataFrame()
 
 # --- MAIN APP ---
 st.title("🇫🇷 Bienvenue à la soirée Miss France 2026 👑")
 st.markdown(f"**Utilisateur actuel :** {user_name if user_name else 'Guest'}")
 
-# --- AJOUT DU NOUVEL ONGLETS ---
+# --- TABS ---
 tab_gala, tab_notation, tab_predictions, tab_scores, tab_officiel, tab_podium = st.tabs([
     "📸 Gala des Miss",
     "💃 Noter les miss",
-    "🔮 Prédictions", 
-    "📊 Scores", 
-    "🏆 Résultats officiels", 
+    "🔮 Prédictions",
+    "📊 Scores",
+    "🏆 Résultats officiels",
     "🥇 Podium"
 ])
 
-# --- NOUVEL ONGLETS 1 : GALA DES MISS ---
+# --- TAB GALA ---
 with tab_gala:
     st.header("✨ Les candidates Miss France 2026")
-    st.info("Parcourez le profil de chaque Miss")
-    
-    # Définir le nombre de colonnes (par exemple, 4 images par ligne)
     NUM_COLS = 5
-    
-    # Créer les colonnes et parcourir les candidates
-    # On utilise un itérateur de colonnes pour distribuer les images
     cols = st.columns(NUM_COLS)
-    
-    for index, candidate in enumerate(CANDIDATES_IMG):
-        # Déterminer la colonne actuelle
-        col_index = index % NUM_COLS
-        col = cols[col_index]
-        
-        # Le chemin d'accès à l'image dans le dossier "public"
-        # Streamlit recherche les fichiers dans le dossier principal ou le dossier "static" / "public"
-        # Si vos images sont dans un dossier nommé "public" à la racine de votre projet, 
-        # le chemin doit être simplement le nom du fichier.
-        # Assurez-vous que les noms des fichiers correspondent exactement aux régions (ex: "Alsace.jpg")
-        image_path = f"public/{candidate}.jpeg"
-        
+    for i, candidate in enumerate(CANDIDATES_IMG):
+        col = cols[i % NUM_COLS]
+        img_path = f"public/{candidate}.jpeg"
         with col:
-            st.image(image_path, caption=candidate, width="content")
-            # Ajout du nom de la région sous l'image
-            #st.markdown(f"**Région :** **{CANDIDATES[index]}**")
-            st.markdown("---") # Séparateur pour les profils
+            if os.path.exists(img_path):
+                st.image(img_path, caption=CANDIDATES[i], width="content")
+            else:
+                st.info(f"Image manquante pour {CANDIDATES[i]}")
+            st.markdown("---")
 
-
-# --- TAB 2: RATINGS (Bikini & Costume) ---
+# --- TAB NOTATION ---
 with tab_notation:
     st.header("Noter la performance")
-    if user_name:
-        st.info("Regardez l'émission et notez les miss en direct !")
-        
-        # Select a candidate to rate
-        candidate_to_rate = st.selectbox("Choisir une candidate:", CANDIDATES)
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            bikini_score = st.slider(f"👙 {candidate_to_rate} - Passage en bikini", 0, 5, 3)
-        with col2:
-            costume_score = st.slider(f"🎭 {candidate_to_rate} - Costume régional", 0, 5, 3)
-        with col3:
-            talk_score = st.slider(f"🎭 {candidate_to_rate} - Éloquence", 0, 5, 3)
-            
-        if st.button("Enregistrer mes notes"):
-            if user_name not in st.session_state['family_votes']:
-                st.session_state['family_votes'][user_name] = {'ratings': {}, 'predictions': {}}
-            
-            st.session_state['family_votes'][user_name]['ratings'][candidate_to_rate] = {
-                'bikini': bikini_score,
-                'costume': costume_score,
-                'talk': talk_score,
-                'total': bikini_score + costume_score + talk_score
-            }
-            st.success(f"Notes enregistrées pour {candidate_to_rate} !")
+    if not user_name:
+        st.warning("Entrez d'abord votre prénom")
     else:
-        st.warning("Entrez d'abord votre prénom dans la colonne à gauche de l'écran.")
+        candidate_to_rate = st.selectbox("Choisissez la candidate à noter :", CANDIDATES)
+        bikini_score = st.slider("Score Bikini", 0, 10, 5)
+        costume_score = st.slider("Score Costume", 0, 10, 5)
+        talk_score = st.slider("Score Talk", 0, 10, 5)
+        if st.button("Enregistrer mes notes"):
+            vote = {
+                "Membre": user_name,
+                "Région": candidate_to_rate,
+                "Bikini": bikini_score,
+                "Costume": costume_score,
+                "Talk": talk_score,
+                "Total": bikini_score + costume_score + talk_score
+            }
+            if append_vote_to_sheet("Notes", vote):
+                st.success(f"Notes enregistrées pour {candidate_to_rate} ! ✅")
 
-# --- TAB 3: PREDICTIONS (Top 12 & 5) ---
+# --- TAB PREDICTIONS ---
 with tab_predictions:
     st.header("Faites vos prédictions")
-    if user_name:
-        st.write("Qui sera la gagnante ? (Devinez avant le vote des juges !)")
-        
-        # Initialize user dict if needed
-        if user_name not in st.session_state['family_votes']:
-            st.session_state['family_votes'][user_name] = {'ratings': {}, 'predictions': {}}
-            
-        current_preds = st.session_state['family_votes'][user_name].get('predictions', {})
+    if not user_name:
+        st.warning("Entrez d'abord votre prénom")
+    elif not SHEET_ID:
+        st.warning("Google Sheet non configurée")
+    else:
+        client = get_gspread_client()
+        if client:
+            try:
+                ws = client.open_by_key(SHEET_ID).worksheet("Predictions")
+                records = ws.get_all_records()
+                user_preds = next((r for r in records if r["Membre"] == user_name), {})
+            except Exception as e:
+                st.warning("Impossible de récupérer les prédictions existantes")
+                st.text(str(e))
+                user_preds = {}
+        else:
+            user_preds = {}
 
-        # Top 12 Input
-        top12_guess = st.multiselect(
-            "Sélectionnez votre Top 12:", 
-            CANDIDATES, 
-            default=current_preds.get('top12', []),
-            max_selections=12
-        )
-        
-        # Top 5 Input
-        top5_guess = st.multiselect(
-            "Sélectionnez votre Top 5:", 
-            top12_guess, # Can only select from previously chosen top 12
-            default=current_preds.get('top5', []),
-            max_selections=5
-        )
-
-        # Winner Input
-        winner_guess = st.selectbox(
-            "Qui sera couronnée MISS FRANCE 2026 ?", 
-            top5_guess if top5_guess else CANDIDATES,
-            index=None,
-            placeholder="Sélectionnez la gagnante"
-        )
+        top12_guess = st.multiselect("Sélectionnez votre Top 12:", CANDIDATES, default=user_preds.get("top12", []), max_selections=12)
+        top5_guess = st.multiselect("Sélectionnez votre Top 5:", top12_guess, default=user_preds.get("top5", []), max_selections=5)
+        winner_guess = st.selectbox("Qui sera couronnée MISS FRANCE 2026 ?", top5_guess if top5_guess else CANDIDATES)
 
         if st.button("Enregistrer mes prédictions 🔒"):
-            st.session_state['family_votes'][user_name]['predictions'] = {
-                'top12': top12_guess,
-                'top5': top5_guess,
-                'winner': winner_guess
+            preds = {
+                "Membre": user_name,
+                "top12": ",".join(top12_guess),
+                "top5": ",".join(top5_guess),
+                "winner": winner_guess
             }
-            st.balloons()
-            st.success("Prédictions enregistrées !")
-    else:
-        st.warning("Entrez d'abord votre prénom dans la colonne à gauche de l'écran.")
+            append_vote_to_sheet("Predictions", preds)
+            st.success("Prédictions enregistrées ! 🎉")
 
-# --- TAB 4: VIEW FAMILY SCORES ---
+# --- TAB SCORES ---
 with tab_scores:
     st.header("Tableau des scores")
-    st.write("Découvrez les notes de chacun")
-    
-    # Aggregate data
-    data = []
-    for member, votes in st.session_state['family_votes'].items():
-        for region, scores in votes['ratings'].items():
-            # Correction: 'eloquence' n'était pas défini dans le dictionnaire de ratings, il faut utiliser 'talk'
-            # Assurez-vous que le score existe avant de l'ajouter
-            talk_score_val = scores.get('talk', 0) 
-            data.append({
-                "Membre": member,
-                "Région": region,
-                "Bikini": scores['bikini'],
-                "Costume": scores['costume'],
-                "Éloquence": talk_score_val,
-                "Total": scores['total']
-            })
-    
-    if data:
-        df = pd.DataFrame(data)
+    df = load_sheet_csv(SHEET_ID)
+    if not df.empty:
+        df['Total'] = pd.to_numeric(df['Total'], errors='coerce').fillna(0).astype(int)
         st.dataframe(df.style.background_gradient(cmap='Oranges', subset=['Total']), use_container_width=True)
-        
-        # Pivot table for easier viewing
-        st.subheader("Tableau de comparaison")
-        # Correction: 'Region' dans le pivot doit être 'Région'
         pivot = df.pivot_table(index="Région", columns="Membre", values="Total")
+        st.subheader("Tableau de comparaison")
         st.dataframe(pivot)
     else:
         st.info("Pas encore de votes enregistrés.")
 
-# --- TAB 5: OFFICIAL RESULTS (Admin) ---
+# --- TAB OFFICIEL ---
 with tab_officiel:
     st.header("🔴 Espace admin: Entrez les vrais résultats")
-    st.warning("Désignez une personne qui entrera les scores réels durant l'émission !")
-    
     real_top12 = st.multiselect("Top 12 Officiel :", CANDIDATES, key="real_12", max_selections=12)
     real_top5 = st.multiselect("Top 5 Officiel :", real_top12, key="real_5", max_selections=5)
-    real_winner = st.selectbox("Gagnante officielle :", real_top5 if real_top5 else CANDIDATES, key="real_win", index=None)
-    
+    real_winner = st.selectbox("Gagnante officielle :", real_top5 if real_top5 else CANDIDATES, key="real_win")
     if st.button("Mettre à jour les résultats officiels"):
-        st.session_state['official_results'] = {
-            "top12": real_top12,
-            "top5": real_top5,
-            "winner": real_winner
-        }
+        st.session_state['official_results'] = {"top12": real_top12, "top5": real_top5, "winner": real_winner}
         st.success("Résultats mis à jour !")
 
-# --- TAB 6: PODIUM (Game Results) ---
+# --- TAB PODIUM ---
 with tab_podium:
     st.header("🏆 Podium")
-    st.markdown("Qui a obtenu le meilleur score ? (Points pour les réponses correctes)")
-    
     official = st.session_state['official_results']
-    
     if not official['top12']:
         st.info("En attente des résultats officiels...")
     else:
-        scores = []
-        for member, data in st.session_state['family_votes'].items():
-            preds = data.get('predictions', {})
-            points = 0
-            details = []
-            
-            # 1 Point for each correct Top 12
-            correct_12 = set(preds.get('top12', [])) & set(official['top12'])
-            points += len(correct_12) * 1
-            
-            # 3 Points for each correct Top 5
-            correct_5 = set(preds.get('top5', [])) & set(official['top5'])
-            points += len(correct_5) * 3
-            
-            # 10 Points for correct Winner
-            if preds.get('winner') == official['winner'] and official['winner'] is not None:
-                points += 10
-                details.append("Gagnante trouvée ! (+10)")
-            
-            scores.append({"Membre": member, "Points": points, "Top 12 correct": len(correct_12), "Top 5 correct": len(correct_5)})
-            
-        leaderboard = pd.DataFrame(scores).sort_values(by="Points", ascending=False)
-        
-        # Display Podium
-        if not leaderboard.empty:
-            # Correction: 'Player' n'existe pas, il faut utiliser 'Membre'
-            winner_name = leaderboard.iloc[0]['Membre']
-            st.success(f"🎉 Le/La gagnant(e) est **{winner_name}** ! 🎉")
-            st.table(leaderboard)
-            
-            if st.button("Bravo !"):
-                st.balloons()
+        df = load_sheet_csv(SHEET_ID)
+        if df.empty:
+            st.info("Pas encore de votes pour calculer le podium")
+        else:
+            leaderboard = []
+            for member in df['Membre'].unique():
+                # Pour le moment, les prédictions sont stockées dans la feuille ou st.session_state
+                preds = {}
+                points = 0
+                leaderboard.append({"Membre": member, "Points": points})
+            leaderboard_df = pd.DataFrame(leaderboard).sort_values(by="Points", ascending=False)
+            if not leaderboard_df.empty:
+                st.table(leaderboard_df)

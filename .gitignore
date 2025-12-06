@@ -1,0 +1,12 @@
+# Virtual environments
+venv_new/
+.venv/
+env/
+__pycache__/
+*.pyc
+
+# Streamlit cache
+.streamlit/
+
+# Fichiers locaux
+.DS_Store
