@@ -1,12 +1,9 @@
-# Virtual environments
-venv_new/
-.venv/
-env/
-__pycache__/
-*.pyc
-
-# Streamlit cache
-.streamlit/
-
-# Fichiers locaux
+node_modules
+dist
+venv
+.env
+.env.local
 .DS_Store
+photos-src
+*.tsbuildinfo
+.vercel

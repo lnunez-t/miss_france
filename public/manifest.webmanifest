@@ -1,0 +1,10 @@
+{
+  "name": "Soirée Miss France 2027",
+  "short_name": "Miss France",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1030",
+  "theme_color": "#0b1030",
+  "lang": "fr",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
