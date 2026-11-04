@@ -12,7 +12,7 @@ import { Timeline } from './Live'
 
 /** Écran à projeter sur la télé / l'ordinateur du salon. */
 export function Tv() {
-  const { snap, ready, connected } = useGame()
+  const { snap, ready, connected, connectionError } = useGame()
   useGameEvents('tv')
   useEffect(() => {
     let release: (() => void) | null = null
@@ -35,7 +35,7 @@ export function Tv() {
 
   return (
     <div className="tv">
-      <ConnectionBanner connected={connected} />
+      <ConnectionBanner connected={connected} detail={connectionError} />
       <header className="tv-head">
         <div className="tv-title">👑 Miss France 2027 · Soirée</div>
         <div className="tv-phase">

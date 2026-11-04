@@ -114,7 +114,7 @@ function Profile({ onClose }: { onClose: () => void }) {
 }
 
 export function PlayerApp() {
-  const { ready, me, snap, connected } = useGame()
+  const { ready, me, snap, connected, connectionError } = useGame()
   const [tab, setTabState] = useState<Tab>(readTab)
   const [sheet, setSheet] = useState<'profile' | 'invite' | null>(null)
   useGameEvents('player')
@@ -134,7 +134,7 @@ export function PlayerApp() {
       <div className="loading">
         <div className="crown spin">👑</div>
         <p>Chargement de la soirée…</p>
-        <ConnectionBanner connected={connected} />
+        <ConnectionBanner connected={connected} detail={connectionError} />
       </div>
     )
   if (!me) return <Join />
@@ -160,7 +160,7 @@ export function PlayerApp() {
         </button>
       </header>
       {backend.mode === 'demo' && <div className="demo-banner">Mode démo (données sur cet appareil uniquement)</div>}
-      <ConnectionBanner connected={connected} />
+      <ConnectionBanner connected={connected} detail={connectionError} />
 
       <main className="content">
         {tab === 'live' && <Live go={setTab} />}

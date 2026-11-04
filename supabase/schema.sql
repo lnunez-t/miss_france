@@ -317,3 +317,29 @@ begin
   update game set phase = 'accueil', on_stage = null,
     results = '{"top15":[],"top5":[],"verdict":[]}'::jsonb, updated_at = now() where id = 1;
 end $$;
+
+-- ---------------------------------------------------------------- Droits d'accès
+-- Les projets Supabase récents n'ouvrent plus forcément les nouvelles tables au public :
+-- on donne explicitement la lecture des tables de jeu et l'exécution des fonctions.
+grant usage on schema public to anon, authenticated;
+grant select on game, players, predictions, ratings, bets, bet_answers to anon, authenticated;
+revoke all on admin_settings, player_secrets from anon, authenticated;
+grant execute on function
+  join_game(text, text),
+  whoami(uuid),
+  update_profile(uuid, text, text),
+  save_prediction(uuid, text, jsonb),
+  save_rating(uuid, text, text, int),
+  answer_bet(uuid, uuid, text),
+  admin_check(text),
+  admin_set_phase(text, text),
+  admin_set_on_stage(text, text),
+  admin_set_results(text, jsonb),
+  admin_create_bet(text, text, text, jsonb, int),
+  admin_update_bet(text, uuid, text, text),
+  admin_delete_bet(text, uuid),
+  admin_rename_player(text, uuid, text),
+  admin_delete_player(text, uuid),
+  admin_player_secret(text, uuid),
+  admin_reset(text, boolean)
+to anon, authenticated;

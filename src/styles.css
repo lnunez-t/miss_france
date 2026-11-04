@@ -1915,3 +1915,10 @@ body.is-tv {
     width: 96px;
   }
 }
+
+.offline-detail {
+  font-weight: 400;
+  font-size: 0.75rem;
+  opacity: 0.85;
+  word-break: break-word;
+}

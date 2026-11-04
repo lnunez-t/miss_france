@@ -37,6 +37,8 @@ interface GameCtx {
   /** Premières données reçues. */
   ready: boolean
   connected: boolean
+  /** Cause technique de la dernière erreur de connexion. */
+  connectionError: string | null
   me: Player | null
   secret: string | null
   join(name: string, avatar: string): Promise<void>
@@ -56,6 +58,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [snap, setSnap] = useState<Snapshot>(emptySnapshot)
   const [ready, setReady] = useState(false)
   const [connected, setConnected] = useState(true)
+  const [connectionError, setConnectionError] = useState<string | null>(null)
   const [secret, setSecret] = useState<string | null>(() => {
     const fromUrl = takeSecretFromUrl()
     if (fromUrl) writeSecret(fromUrl)
@@ -78,8 +81,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
       setReady(true)
       setConnected(true)
-    } catch {
+      setConnectionError(null)
+    } catch (e) {
+      const err = toGameError(e)
+      console.error('Chargement impossible :', err.detail ?? err.message)
       setConnected(false)
+      setConnectionError(`Chargement : ${err.detail ?? err.message}`)
     }
   }, [])
 
@@ -91,7 +98,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setSnap((s) => fn(s))
       },
       onReaction: (r) => reactionListeners.current.forEach((l) => l(r)),
-      onStatus: setConnected,
+      onStatus: (ok, detail) => {
+        setConnected(ok)
+        if (detail) console.error(detail)
+        setConnectionError(ok ? null : (detail ?? null))
+      },
     })
     // Téléphone qui sort de veille ou réseau qui revient : on resynchronise.
     const onVisible = () => document.visibilityState === 'visible' && reload()
@@ -141,6 +152,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     snap,
     ready,
     connected,
+    connectionError,
     me,
     secret,
     async join(name, avatar) {

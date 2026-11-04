@@ -92,7 +92,7 @@ function Section({ title, children, defaultOpen = true }: { title: string; child
 }
 
 function Regie({ pin }: { pin: string }) {
-  const { snap, ready, connected } = useGame()
+  const { snap, ready, connected, connectionError } = useGame()
   const { toast } = useNotify()
 
   const run = async (fn: () => Promise<unknown>, ok?: string) => {
@@ -137,7 +137,7 @@ function Regie({ pin }: { pin: string }) {
 
   return (
     <div className="admin">
-      <ConnectionBanner connected={connected} />
+      <ConnectionBanner connected={connected} detail={connectionError} />
       <header className="admin-head">
         <div>
           <div className="title-sm">🎬 Régie</div>

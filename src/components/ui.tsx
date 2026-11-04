@@ -208,7 +208,12 @@ export function Empty({ emoji, children }: { emoji: string; children: ReactNode 
   )
 }
 
-export function ConnectionBanner({ connected }: { connected: boolean }) {
+export function ConnectionBanner({ connected, detail }: { connected: boolean; detail?: string | null }) {
   if (connected) return null
-  return <div className="offline">Connexion perdue… reconnexion en cours 📶</div>
+  return (
+    <div className="offline">
+      Connexion perdue… reconnexion en cours 📶
+      {detail && <div className="offline-detail">{detail}</div>}
+    </div>
+  )
 }

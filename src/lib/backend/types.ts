@@ -7,7 +7,7 @@ export interface Listener {
   onUpdate: (fn: Updater) => void
   onReaction: (r: Reaction) => void
   /** Connexion temps réel établie (true) ou perdue (false). */
-  onStatus: (connected: boolean) => void
+  onStatus: (connected: boolean, detail?: string) => void
 }
 
 export interface NewBet {
@@ -60,9 +60,12 @@ const MESSAGES: Record<ErrorCode, string> = {
 
 export class GameError extends Error {
   code: ErrorCode
-  constructor(code: ErrorCode) {
+  /** Message technique d'origine (affiché pour aider au diagnostic). */
+  detail?: string
+  constructor(code: ErrorCode, detail?: string) {
     super(MESSAGES[code])
     this.code = code
+    this.detail = detail
   }
 }
 
@@ -70,5 +73,5 @@ export function toGameError(e: unknown): GameError {
   if (e instanceof GameError) return e
   const msg = e instanceof Error ? e.message : String(e)
   const code = (Object.keys(MESSAGES) as ErrorCode[]).find((c) => msg.includes(c))
-  return new GameError(code ?? 'NETWORK')
+  return new GameError(code ?? 'NETWORK', msg)
 }

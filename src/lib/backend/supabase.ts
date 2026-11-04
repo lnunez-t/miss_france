@@ -95,14 +95,14 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         })
       }
       let wasConnected = false
-      ch.subscribe((status) => {
+      ch.subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
           // Après une reconnexion (téléphone en veille…), on recharge tout.
           if (wasConnected) this.load().then((snap) => l.onUpdate(() => snap)).catch(() => {})
           wasConnected = true
           l.onStatus(true)
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          l.onStatus(false)
+          l.onStatus(false, `Temps réel : ${status}${err ? ` — ${err.message}` : ''}`)
         }
       })
 
