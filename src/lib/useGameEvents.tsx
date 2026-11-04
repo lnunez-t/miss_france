@@ -2,9 +2,9 @@ import { useEffect, useRef } from 'react'
 import { useNotify } from '../components/ui'
 import { candidate, missLabel } from '../data/candidates'
 import { PHASE_BY_ID, VERDICT_TITLES } from './phases'
-import { getPrediction, POINTS } from './scoring'
+import { myPicks, POINTS, rankPoints } from './scoring'
 import { useGame } from './store'
-import type { PredAvant, PredApres15, PredFinal, Snapshot } from './types'
+import type { Snapshot } from './types'
 
 /**
  * Compare l'état avant/après chaque mise à jour et déclenche les annonces :
@@ -35,22 +35,20 @@ export function useGameEvents(mode: 'player' | 'tv') {
       if (c) toast(<>🎙️ Sur scène : <b>Miss {c.region}</b> — note-la !</>)
     }
 
-    const avant = meId ? (getPrediction(snap, meId, 'avant') as PredAvant | undefined) : undefined
-    const apres = meId ? (getPrediction(snap, meId, 'apres15') as PredApres15 | undefined) : undefined
-    const fin = meId ? (getPrediction(snap, meId, 'final') as PredFinal | undefined) : undefined
+    const picks = meId ? myPicks(snap, meId) : null
 
     for (const id of g.results.top15.filter((x) => !old.results.top15.includes(x))) {
-      const mine = avant?.top15.includes(id)
+      const mine = picks?.top15.includes(id)
       announce({
         kicker: `Top 15 · ${g.results.top15.length}/15`,
         title: missLabel(id),
         candidateId: id,
-        note: mode === 'player' ? (mine ? `Tu l’avais choisie ! +${POINTS.avantTop15} pt` : avant ? 'Pas dans ton pronostic…' : undefined) : undefined,
+        note: mode === 'player' ? (mine ? `Tu l’avais choisie ! +${POINTS.top15} pt` : picks?.top15.length ? 'Pas dans ton Top 15…' : undefined) : undefined,
       })
     }
 
     for (const id of g.results.top5.filter((x) => !old.results.top5.includes(x))) {
-      const pts = (avant?.top5.includes(id) ? POINTS.avantTop5 : 0) + (apres?.top5.includes(id) ? POINTS.apres15Top5 : 0)
+      const pts = picks?.top5.includes(id) ? POINTS.top5 : 0
       announce({
         kicker: `Top 5 · ${g.results.top5.length}/5`,
         title: missLabel(id),
@@ -66,9 +64,8 @@ export function useGameEvents(mode: 'player' | 'tv') {
       const isMiss = idx === 4
       let note: string | undefined
       if (mode === 'player' && meId) {
-        let pts = fin?.order[rank] === id ? POINTS.finalExact : 0
-        if (isMiss) pts += (avant?.miss === id ? POINTS.avantMiss : 0) + (apres?.miss === id ? POINTS.apres15Miss : 0)
-        note = pts ? `🎯 Bien joué ! +${pts} pts` : isMiss ? 'Raté pour cette fois !' : undefined
+        const exact = picks?.order[rank] === id
+        note = exact ? `🎯 Bonne place ! +${rankPoints(rank)} pts` : isMiss ? 'Raté pour cette fois !' : undefined
       }
       announce({ kicker: VERDICT_TITLES[idx], title: missLabel(id), candidateId: id, note, big: isMiss })
     })

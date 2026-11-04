@@ -5,11 +5,17 @@ import { CANDIDATES, missLabel } from '../data/candidates'
 import { backend, type NewBet } from '../lib/backend'
 import { copyText, joinUrl, prettyUrl } from '../lib/device'
 import { currentRound, PHASES, phaseIndex, ROUNDS, roundCandidates, VERDICT_TITLES } from '../lib/phases'
-import { getPrediction, leaderboard } from '../lib/scoring'
+import { leaderboard, myPicks } from '../lib/scoring'
 import { useGame } from '../lib/store'
-import type { Bet, PredAvant, Results } from '../lib/types'
+import type { Bet, Results } from '../lib/types'
 
 const PIN_KEY = 'mf27-admin-pin'
+/** Ce que verrouille le passage à chaque étape. */
+const LOCKS: Partial<Record<string, string>> = {
+  top15: 'les Top 15 des joueurs',
+  top5: 'les Top 5 des joueurs',
+  verdict: 'les classements finaux (Miss + dauphines)',
+}
 const ALL = CANDIDATES.map((c) => c.id)
 const sortIds = (ids: string[]) => ALL.filter((id) => ids.includes(id))
 
@@ -171,7 +177,9 @@ function Regie({ pin }: { pin: string }) {
             </button>
           ))}
         </div>
-        {idx === 0 && <p className="muted small">⚠️ Passer à l’étape suivante verrouille les pronostics d’avant-show.</p>}
+        {LOCKS[PHASES[idx + 1]?.id] && (
+          <p className="warn">⚠️ Passer à « {PHASES[idx + 1].label} » verrouille {LOCKS[PHASES[idx + 1].id]} : fais-le juste avant l’annonce à la télé.</p>
+        )}
       </Section>
 
       {round && (
@@ -409,8 +417,8 @@ function PlayersAdmin({ pin, run }: { pin: string; run: (fn: () => Promise<unkno
       </p>
       <ul className="admin-players">
         {board.map(({ player: p, score }) => {
-          const avant = getPrediction(snap, p.id, 'avant') as PredAvant | undefined
-          const done = avant?.top15.length === 15 && avant.top5.length === 5 && !!avant.miss
+          const picks = myPicks(snap, p.id)
+          const status = `Top 15 ${picks.top15.length === 15 ? '✅' : '✗'} · Top 5 ${picks.top5.length === 5 ? '✅' : '✗'} · Classement ${picks.order.length === 5 ? '✅' : '✗'}`
           return (
             <li key={p.id}>
               <Avatar emoji={p.avatar} size="sm" />
@@ -418,7 +426,7 @@ function PlayersAdmin({ pin, run }: { pin: string; run: (fn: () => Promise<unkno
                 <b>{p.name}</b>
                 <span className="muted small">
                   {' '}
-                  · {score.total} pts · {done ? 'prono ✅' : 'prono ✗'}
+                  · {score.total} pts · {status}
                 </span>
               </span>
               <button

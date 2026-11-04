@@ -2,9 +2,10 @@ import { BetCard } from '../components/BetCard'
 import { CandidatePhoto, Countdown, Stars, useNotify } from '../components/ui'
 import { candidate, missLabel, SHOW_START } from '../data/candidates'
 import { canEditPrediction, currentRound, PHASE_BY_ID, PHASES, phaseIndex, RANK_TITLES, ROUNDS, roundCandidates } from '../lib/phases'
-import { candidateStats, getPrediction, leaderboard } from '../lib/scoring'
+import { candidateStats, getPrediction, leaderboard, myPicks } from '../lib/scoring'
 import { useGame } from '../lib/store'
-import type { PredAvant, PredApres15, PredChouchoute, PredFinal } from '../lib/types'
+import type { PredChouchoute } from '../lib/types'
+import { pronoPools } from './Pronos'
 import type { Tab } from './PlayerApp'
 
 export function Timeline({ compact = false }: { compact?: boolean }) {
@@ -57,25 +58,25 @@ function PronoStatus({ go }: { go: (t: Tab) => void }) {
   const { snap, me } = useGame()
   if (!me) return null
   const phase = snap.game.phase
-  const avant = getPrediction(snap, me.id, 'avant') as PredAvant | undefined
-  const apres = getPrediction(snap, me.id, 'apres15') as PredApres15 | undefined
-  const fin = getPrediction(snap, me.id, 'final') as PredFinal | undefined
   const chou = (getPrediction(snap, me.id, 'chouchoute') as PredChouchoute | undefined)?.candidate
+  const { complete, picks, top5Valid } = pronoPools(snap, me.id)
 
+  // Le prochain niveau encore ouvert et incomplet, sinon le prochain qui va se verrouiller.
+  const levels = [
+    { kind: 'avant' as const, label: 'ton Top 15', count: `${picks.top15.length}/15`, done: complete.top15, lock: 'jusqu’à l’annonce du Top 15' },
+    { kind: 'apres15' as const, label: 'ton Top 5', count: `${top5Valid.length}/5`, done: complete.top5, lock: 'jusqu’à l’annonce du Top 5' },
+    { kind: 'final' as const, label: 'ton classement Miss + dauphines', count: '', done: complete.final, lock: 'jusqu’au verdict' },
+  ].filter((l) => canEditPrediction(phase, l.kind))
+  const missing = levels.filter((l) => !l.done)
   let todo: { title: string; text: string } | null = null
-  if (canEditPrediction(phase, 'avant')) {
-    const done = avant?.top15.length === 15 && avant.top5.length === 5 && !!avant.miss
-    todo = done
-      ? { title: '✅ Pronostic complet', text: 'Tu peux encore le modifier jusqu’au début du show.' }
-      : { title: '🔮 Fais ton pronostic !', text: 'Top 15, Top 5 et Miss France 2027 — verrouillé au lancement du show.' }
-  } else if (canEditPrediction(phase, 'apres15') && snap.game.results.top15.length === 15) {
-    todo = apres?.miss
-      ? { title: '✅ 2e chance validée', text: 'Modifiable jusqu’à l’annonce du Top 5.' }
-      : { title: '🎯 2e chance !', text: 'Refais ton Top 5 et ta Miss parmi les 15 demi-finalistes.' }
-  } else if (canEditPrediction(phase, 'final') && snap.game.results.top5.length === 5) {
-    todo = fin?.order.length === 5
-      ? { title: '✅ Classement final validé', text: 'Modifiable jusqu’au verdict.' }
-      : { title: '🏁 Classement final !', text: 'Classe les 5 finalistes, de Miss France à la 4e dauphine.' }
+  if (missing.length) {
+    const first = missing[0]
+    todo = {
+      title: `🔮 Complète ${first.label}${first.count ? ` (${first.count})` : ''}`,
+      text: `Modifiable ${first.lock}.${missing.length > 1 ? ` Il te reste aussi : ${missing.slice(1).map((l) => l.label).join(', ')}.` : ''}`,
+    }
+  } else if (levels.length) {
+    todo = { title: '✅ Pronostics complets', text: `Tu peux encore modifier ${levels[0].label} ${levels[0].lock}.` }
   }
 
   return (
@@ -105,7 +106,8 @@ function PronoStatus({ go }: { go: (t: Tab) => void }) {
 function ResultsStrip() {
   const { snap, me } = useGame()
   const { top15, top5, verdict } = snap.game.results
-  const avant = me ? (getPrediction(snap, me.id, 'avant') as PredAvant | undefined) : undefined
+  const myTop15 = me ? myPicks(snap, me.id).top15 : []
+  const myTop5 = me ? myPicks(snap, me.id).top5 : []
   if (verdict.length) {
     return (
       <section className="card">
@@ -131,7 +133,7 @@ function ResultsStrip() {
   const list = top5.length ? top5 : top15
   if (!list.length) return null
   const label = top5.length ? `🔥 Top 5 (${top5.length}/5)` : `🌟 Top 15 (${top15.length}/15)`
-  const mine = (id: string) => (top5.length ? avant?.top5.includes(id) : avant?.top15.includes(id))
+  const mine = (id: string) => (top5.length ? myTop5.includes(id) : myTop15.includes(id))
   return (
     <section className="card">
       <h3 className="section-title">{label}</h3>
@@ -144,7 +146,7 @@ function ResultsStrip() {
           </div>
         ))}
       </div>
-      {avant && <p className="muted small">✓ = dans ton pronostic d’avant-show</p>}
+      {(top5.length ? myTop5 : myTop15).length > 0 && <p className="muted small">✓ = dans ton pronostic</p>}
     </section>
   )
 }

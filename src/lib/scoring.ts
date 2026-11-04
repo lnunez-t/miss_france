@@ -1,32 +1,41 @@
 import type { Player, PredAvant, PredApres15, PredFinal, Prediction, PredictionKind, RoundId, Snapshot } from './types'
 
 export const POINTS = {
-  avantTop15: 1,
-  avantTop5: 3,
-  avantMiss: 10,
-  apres15Top5: 2,
-  apres15Miss: 5,
-  finalExact: 3,
+  /** par demi-finaliste trouvée */
+  top15: 1,
+  /** par finaliste trouvée */
+  top5: 3,
+  /** Miss France à la bonne place */
+  miss: 10,
+  /** par dauphine à la bonne place */
+  dauphine: 3,
 }
 
 export interface Breakdown {
-  avant: number
-  apres15: number
+  top15: number
+  top5: number
   final: number
   bets: number
   total: number
   top15Hits: number
   top5Hits: number
   missHit: boolean
-  apres15Top5Hits: number
-  apres15MissHit: boolean
-  finalExactHits: number
+  dauphineHits: number
   betHits: number
 }
 
 export function getPrediction<K extends PredictionKind>(snap: Snapshot, playerId: string, kind: K): Prediction<K>['payload'] | undefined {
   const p = snap.predictions.find((x) => x.playerId === playerId && x.kind === kind)
   return p?.payload as Prediction<K>['payload'] | undefined
+}
+
+/** Les 3 niveaux de pronostic d'un joueur. */
+export function myPicks(snap: Snapshot, playerId: string) {
+  return {
+    top15: (getPrediction(snap, playerId, 'avant') as PredAvant | undefined)?.top15 ?? [],
+    top5: (getPrediction(snap, playerId, 'apres15') as PredApres15 | undefined)?.top5 ?? [],
+    order: (getPrediction(snap, playerId, 'final') as PredFinal | undefined)?.order ?? [],
+  }
 }
 
 /** Miss France élue (connue quand les 5 places du verdict sont révélées). */
@@ -41,25 +50,26 @@ export function finalRank(snap: Snapshot, candidateId: string): number | null {
   return idx === -1 ? null : 4 - idx
 }
 
-const count = (picked: string[] | undefined, official: string[]) => (picked ?? []).filter((id) => official.includes(id)).length
+/** Points rapportés par une place exacte du classement final. */
+export const rankPoints = (rank: number) => (rank === 0 ? POINTS.miss : POINTS.dauphine)
+
+const count = (picked: string[], official: string[]) => picked.filter((id) => official.includes(id)).length
 
 export function scorePlayer(snap: Snapshot, playerId: string): Breakdown {
   const { top15, top5, verdict } = snap.game.results
-  const miss = officialMiss(snap)
-  const avant = getPrediction(snap, playerId, 'avant') as PredAvant | undefined
-  const apres = getPrediction(snap, playerId, 'apres15') as PredApres15 | undefined
-  const fin = getPrediction(snap, playerId, 'final') as PredFinal | undefined
+  const picks = myPicks(snap, playerId)
 
-  const top15Hits = count(avant?.top15, top15)
-  const top5Hits = count(avant?.top5, top5)
-  const missHit = !!miss && avant?.miss === miss
-  const apres15Top5Hits = count(apres?.top5, top5)
-  const apres15MissHit = !!miss && apres?.miss === miss
-
-  let finalExactHits = 0
+  const top15Hits = count(picks.top15, top15)
+  const top5Hits = count(picks.top5, top5)
+  let missHit = false
+  let dauphineHits = 0
+  let finalPts = 0
   verdict.forEach((cid, idx) => {
     const rank = 4 - idx
-    if (fin?.order?.[rank] === cid) finalExactHits++
+    if (picks.order[rank] !== cid) return
+    finalPts += rankPoints(rank)
+    if (rank === 0) missHit = true
+    else dauphineHits++
   })
 
   let bets = 0
@@ -73,22 +83,18 @@ export function scorePlayer(snap: Snapshot, playerId: string): Breakdown {
     }
   }
 
-  const avantPts = top15Hits * POINTS.avantTop15 + top5Hits * POINTS.avantTop5 + (missHit ? POINTS.avantMiss : 0)
-  const apresPts = apres15Top5Hits * POINTS.apres15Top5 + (apres15MissHit ? POINTS.apres15Miss : 0)
-  const finalPts = finalExactHits * POINTS.finalExact
-
+  const top15Pts = top15Hits * POINTS.top15
+  const top5Pts = top5Hits * POINTS.top5
   return {
-    avant: avantPts,
-    apres15: apresPts,
+    top15: top15Pts,
+    top5: top5Pts,
     final: finalPts,
     bets,
-    total: avantPts + apresPts + finalPts + bets,
+    total: top15Pts + top5Pts + finalPts + bets,
     top15Hits,
     top5Hits,
     missHit,
-    apres15Top5Hits,
-    apres15MissHit,
-    finalExactHits,
+    dauphineHits,
     betHits,
   }
 }
@@ -172,9 +178,12 @@ export function awards(snap: Snapshot): Award[] {
 
   const miss = officialMiss(snap)
   if (miss) {
-    const seers = snap.players.filter((p) => (getPrediction(snap, p.id, 'avant') as PredAvant | undefined)?.miss === miss)
+    const seers = snap.players.filter((p) => myPicks(snap, p.id).order[0] === miss)
     if (seers.length)
-      out.push({ emoji: '🔮', title: 'Voyance extralucide', winner: seers.map((p) => `${p.avatar} ${p.name}`).join(', '), detail: 'avait trouvé Miss France avant le show' })
+      out.push({ emoji: '🔮', title: 'Voyance extralucide', winner: seers.map((p) => `${p.avatar} ${p.name}`).join(', '), detail: 'avait trouvé Miss France 2027' })
+    const perfect = snap.players.filter((p) => scorePlayer(snap, p.id).dauphineHits === 4 && scorePlayer(snap, p.id).missHit)
+    if (perfect.length)
+      out.push({ emoji: '🎯', title: 'Sans faute', winner: perfect.map((p) => `${p.avatar} ${p.name}`).join(', '), detail: 'classement final 100 % exact !' })
   }
 
   const avgByPlayer = snap.players

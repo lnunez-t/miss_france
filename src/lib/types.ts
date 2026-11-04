@@ -13,10 +13,12 @@ export type PhaseId =
 export type RoundId = 'costume' | 'maillot' | 'robe' | 'discours'
 
 /**
- * avant      : pronostic complet fait avant le show (Top 15, Top 5, Miss)
- * apres15    : 2e chance après l'annonce du Top 15 (Top 5, Miss)
- * final      : classement final après l'annonce du Top 5 (Miss + 4 dauphines)
+ * Pronostic en 3 niveaux, chacun verrouillé juste avant l'annonce correspondante :
+ * avant      : Top 15 (verrouillé à « Annonce du Top 15 »)
+ * apres15    : Top 5 (verrouillé à « Annonce du Top 5 »)
+ * final      : classement Miss + 4 dauphines (verrouillé au « Verdict »)
  * chouchoute : sa candidate préférée (pas de points)
+ * (Les identifiants historiques sont conservés pour rester compatibles avec la base.)
  */
 export type PredictionKind = 'avant' | 'apres15' | 'final' | 'chouchoute'
 
@@ -41,14 +43,13 @@ export interface Player {
   createdAt: string
 }
 
+/** Mon Top 15. */
 export interface PredAvant {
   top15: string[]
-  top5: string[]
-  miss: string | null
 }
+/** Mon Top 5. */
 export interface PredApres15 {
   top5: string[]
-  miss: string | null
 }
 export interface PredFinal {
   /** [Miss, 1re dauphine, 2e, 3e, 4e] */

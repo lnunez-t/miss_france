@@ -1,14 +1,14 @@
-// Importe les portraits officiels : `npm run photos`
+// Importe les portraits : `npm run photos` (ou `npm run photos -- <dossier>` pour un autre dossier source)
 //
 // 1. Dépose les images (jpg, png, webp…) dans le dossier photos-src/ à la racine du projet.
 //    Le nom de fichier doit contenir la région : « Miss-Alsace.jpg », « nouvelle_caledonie.png »,
 //    « 20-Lana-Prost-Nouvelle-Caledonie.jpeg »… (accents, majuscules et tirets ignorés).
-// 2. Le script recadre en portrait 600×800, compresse en WebP et écrit public/photos/<id>.webp.
+// 2. Le script recadre en portrait 3:4 (450×600), compresse en WebP et écrit public/photos/<id>.webp.
 import fs from 'node:fs'
 import path from 'node:path'
 import sharp from 'sharp'
 
-const SRC = path.resolve('photos-src')
+const SRC = path.resolve(process.argv[2] ?? 'photos-src')
 const OUT = path.resolve('public/photos')
 
 // Identifiants (voir src/data/candidates.ts) + variantes de noms courantes.
@@ -74,7 +74,7 @@ for (const f of files) {
   if (done.has(id)) console.log(`⚠️  Deux photos pour ${id} : ${f} remplace la précédente`)
   await sharp(path.join(SRC, f))
     .rotate()
-    .resize(600, 800, { fit: 'cover', position: 'attention' })
+    .resize(450, 600, { fit: 'cover', position: 'attention' })
     .webp({ quality: 80 })
     .toFile(path.join(OUT, `${id}.webp`))
   done.add(id)
@@ -82,5 +82,4 @@ for (const f of files) {
 }
 
 const missing = Object.keys(REGIONS).filter((id) => !fs.existsSync(path.join(OUT, `${id}.webp`)))
-console.log(`\n${31 - missing.length}/31 photos prêtes.`)
-if (missing.length) console.log(`Manquantes : ${missing.join(', ')}`)
+console.log(`\n${31 - missing.length}/31 photos pr

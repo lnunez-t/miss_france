@@ -3,7 +3,7 @@
 Application web pour vivre l'élection de **Miss France 2027** (samedi 12 décembre 2026, TF1) en famille ou entre amis.
 Chacun ouvre un **simple lien** sur son téléphone, tape son prénom, et suit toute l'émission en direct :
 
-- 🔮 **Pronostics** avant le show (Top 15, Top 5, Miss), puis une **2e chance** après le Top 15 et un **classement final** après le Top 5
+- 🔮 **Pronostics en 3 niveaux** : Top 15, Top 5, puis classement final (Miss France + 4 dauphines) — chacun modifiable jusqu'à **juste avant son annonce**
 - ⭐ **Notes en direct** à chaque défilé (costumes, maillot, robes, grand oral) — la candidate « sur scène » s'affiche sur tous les téléphones
 - ⚡ **Paris éclair** lancés pendant l'émission (« JPF va-t-il se tromper de prénom ? »…)
 - 😍 **Réactions** émojis qui s'envolent sur tous les écrans
@@ -51,6 +51,8 @@ Ouvre http://localhost:5173. Sans configuration Supabase, l'appli tourne en **mo
 
 Dès que les portraits officiels sont publiés :
 
+Des photos provisoires (diaporama 20 Minutes) sont déjà en place dans `public/photos/`. Pour les remplacer :
+
 1. Dépose les images dans un dossier `photos-src/` à la racine (le nom de fichier doit contenir la région, ex. `Miss-Alsace.jpg`).
 2. `npm run photos` → elles sont recadrées, compressées et rangées dans `public/photos/`.
 3. Redéploie (commit + push). Sans photo, une vignette colorée avec les initiales de la région s'affiche.
@@ -61,14 +63,14 @@ Dès que les portraits officiels sont publiés :
 
 | Moment de l'émission | Dans la régie |
 |---|---|
-| Avant 21 h 10 | Étape « Avant l'émission » : tout le monde fait ses pronostics |
-| Début du show | **Suivante** → pronostics verrouillés |
+| Avant 21 h 10 | Étape « Avant l'émission » : tout le monde découvre les Miss et commence son grand pronostic |
+| Début du show | **Suivante** → « Ouverture » (pronostics toujours modifiables) |
 | Défilé des costumes | Étape Costumes, puis **Suivante ›** dans « Sur scène » à chaque passage |
-| Annonce du Top 15 | Touche chaque candidate **au moment où elle est annoncée** |
+| Annonce du Top 15 | Passe à cette étape **juste avant** l'annonce (→ grands pronostics verrouillés), puis touche chaque candidate **au moment où elle est annoncée** |
 | Maillot / robes | Étape suivante + « Sur scène » |
-| Annonce du Top 5 | Touche les 5 finalistes |
+| Annonce du Top 5 | Passe à cette étape **juste avant** l'annonce (→ Top 5 verrouillés), puis touche les 5 finalistes |
 | Grand oral | Étape « Grand oral » |
-| Verdict | Révèle la 4e dauphine, puis la 3e… jusqu'à Miss France 👑 |
+| Verdict | Passe à cette étape **juste avant** l'annonce (→ classements verrouillés), puis révèle la 4e dauphine, la 3e… jusqu'à Miss France 👑 |
 | Après | Étape « Palmarès » : classement final et récompenses |
 
 À tout moment : **Paris éclair** (questions toutes prêtes ou personnalisées), puis « Donner la réponse ».
@@ -82,15 +84,12 @@ Dès que les portraits officiels sont publiés :
 
 ## Barème
 
-| | Points |
-|---|---|
-| Avant-show : chaque demi-finaliste trouvée | +1 |
-| Avant-show : chaque finaliste trouvée | +3 |
-| Avant-show : Miss France trouvée | +10 |
-| 2e chance : chaque finaliste | +2 |
-| 2e chance : Miss France | +5 |
-| Classement final : chaque place exacte | +3 |
-| Paris éclair | selon le pari |
+| Niveau | Modifiable jusqu'à | Points |
+|---|---|---|
+| Top 15 | l'annonce du Top 15 | +1 par demi-finaliste trouvée |
+| Top 5 | l'annonce du Top 5 | +3 par finaliste trouvée |
+| Classement final | le verdict | +10 pour Miss France à la bonne place, +3 par dauphine à la bonne place |
+| Paris éclair | fermeture du pari | selon le pari |
 
 Le barème se modifie dans [`src/lib/scoring.ts`](src/lib/scoring.ts).
 

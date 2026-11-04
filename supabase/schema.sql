@@ -189,9 +189,10 @@ begin
   select phase into v_phase from game where id = 1;
   if length(p_payload::text) > 4000 then raise exception 'INVALID'; end if;
   if p_kind = 'chouchoute' then null;
-  elsif p_kind = 'avant' and v_phase = 'accueil' then null;
-  elsif p_kind = 'apres15' and v_phase in ('top15', 'maillot', 'robes') then null;
-  elsif p_kind = 'final' and v_phase in ('top5', 'discours') then null;
+  -- Chaque niveau se verrouille juste avant son annonce.
+  elsif p_kind = 'avant' and v_phase in ('accueil', 'ouverture', 'costumes') then null;
+  elsif p_kind = 'apres15' and v_phase in ('accueil', 'ouverture', 'costumes', 'top15', 'maillot', 'robes') then null;
+  elsif p_kind = 'final' and v_phase in ('accueil', 'ouverture', 'costumes', 'top15', 'maillot', 'robes', 'top5', 'discours') then null;
   elsif p_kind in ('avant', 'apres15', 'final') then raise exception 'LOCKED';
   else raise exception 'INVALID';
   end if;

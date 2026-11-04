@@ -24,37 +24,38 @@ describe('données', () => {
 })
 
 describe('scoring', () => {
-  it('compte les points au fil des annonces', () => {
+  it('compte les points des 3 niveaux au fil des annonces', () => {
     const s = base()
-    const top15 = ids.slice(0, 15)
-    const top5 = ids.slice(0, 5)
-    s.predictions.push({ playerId: 'a', kind: 'avant', updatedAt: '', payload: { top15, top5, miss: ids[0] } })
+    s.predictions.push({ playerId: 'a', kind: 'avant', updatedAt: '', payload: { top15: ids.slice(0, 15) } })
+    s.predictions.push({ playerId: 'a', kind: 'apres15', updatedAt: '', payload: { top5: ids.slice(5, 10) } })
+    // classement : [Miss, 1re, 2e, 3e, 4e]
+    s.predictions.push({ playerId: 'a', kind: 'final', updatedAt: '', payload: { order: [ids[9], ids[8], ids[7], ids[5], ids[6]] } })
+
     // Top 15 officiel : 10 bons pour Alice
     s.game.results.top15 = [...ids.slice(5, 15), ...ids.slice(20, 25)]
-    expect(scorePlayer(s, 'a').avant).toBe(10 * POINTS.avantTop15)
+    expect(scorePlayer(s, 'a').top15).toBe(10 * POINTS.top15)
 
-    // Top 5 officiel : aucun de son Top 5 (ses 5 premiers ne sont pas dans le Top 15)
+    // Top 5 officiel : ses 5 sont bons
     s.game.results.top5 = ids.slice(5, 10)
-    expect(scorePlayer(s, 'a').top5Hits).toBe(0)
+    expect(scorePlayer(s, 'a').top5).toBe(5 * POINTS.top5)
 
-    // Classement final + 2e chance
-    s.predictions.push({ playerId: 'a', kind: 'apres15', updatedAt: '', payload: { top5: ids.slice(5, 10), miss: ids[9] } })
-    s.predictions.push({ playerId: 'a', kind: 'final', updatedAt: '', payload: { order: [ids[9], ids[8], ids[7], ids[5], ids[6]] } })
-    // verdict révélé dans l'ordre 4e → Miss
+    // Verdict révélé dans l'ordre 4e → Miss : Miss, 1re et 2e exactes
     s.game.results.verdict = [ids[5], ids[6], ids[7], ids[8], ids[9]]
     const sc = scorePlayer(s, 'a')
-    expect(sc.apres15).toBe(5 * POINTS.apres15Top5 + POINTS.apres15Miss)
-    expect(sc.finalExactHits).toBe(3) // Miss, 1re et 2e dauphines exactes
-    expect(sc.missHit).toBe(false)
+    expect(sc.missHit).toBe(true)
+    expect(sc.dauphineHits).toBe(2)
+    expect(sc.final).toBe(POINTS.miss + 2 * POINTS.dauphine)
+    expect(sc.total).toBe(10 * POINTS.top15 + 5 * POINTS.top5 + POINTS.miss + 2 * POINTS.dauphine)
   })
 
-  it('Miss trouvée uniquement quand les 5 places sont révélées', () => {
+  it('les dauphines comptent au fur et à mesure du verdict', () => {
     const s = base()
-    s.predictions.push({ playerId: 'a', kind: 'avant', updatedAt: '', payload: { top15: [], top5: [], miss: ids[3] } })
-    s.game.results.verdict = [ids[1], ids[2], ids[4], ids[5]]
+    s.predictions.push({ playerId: 'a', kind: 'final', updatedAt: '', payload: { order: [ids[0], ids[1], ids[2], ids[3], ids[4]] } })
+    s.game.results.verdict = [ids[4]] // 4e dauphine exacte
+    expect(scorePlayer(s, 'a').final).toBe(POINTS.dauphine)
+    s.game.results.verdict.push(ids[2], ids[3]) // 3e fausse (ids[2]), 2e fausse
+    expect(scorePlayer(s, 'a').dauphineHits).toBe(1)
     expect(scorePlayer(s, 'a').missHit).toBe(false)
-    s.game.results.verdict.push(ids[3])
-    expect(scorePlayer(s, 'a').avant).toBe(POINTS.avantMiss)
   })
 
   it('paris éclair', () => {
@@ -86,9 +87,13 @@ describe('scoring', () => {
 describe('étapes', () => {
   it('verrouillage des pronostics', () => {
     expect(canEditPrediction('accueil', 'avant')).toBe(true)
-    expect(canEditPrediction('ouverture', 'avant')).toBe(false)
-    expect(canEditPrediction('maillot', 'apres15')).toBe(true)
+    expect(canEditPrediction('ouverture', 'avant')).toBe(true)
+    expect(canEditPrediction('costumes', 'avant')).toBe(true)
+    expect(canEditPrediction('top15', 'avant')).toBe(false)
+    expect(canEditPrediction('accueil', 'apres15')).toBe(true)
+    expect(canEditPrediction('robes', 'apres15')).toBe(true)
     expect(canEditPrediction('top5', 'apres15')).toBe(false)
+    expect(canEditPrediction('accueil', 'final')).toBe(true)
     expect(canEditPrediction('discours', 'final')).toBe(true)
     expect(canEditPrediction('verdict', 'final')).toBe(false)
     expect(canEditPrediction('fin', 'chouchoute')).toBe(true)

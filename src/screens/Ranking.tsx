@@ -8,13 +8,17 @@ function Detail({ s }: { s: Breakdown }) {
   return (
     <ul className="breakdown">
       <li>
-        🔮 Avant-show : <b>{s.avant}</b> pts <span className="muted">({s.top15Hits} du Top 15, {s.top5Hits} du Top 5{s.missHit ? ', Miss trouvée !' : ''})</span>
+        🌟 Top 15 : <b>{s.top15}</b> pts <span className="muted">({s.top15Hits} trouvée{s.top15Hits > 1 ? 's' : ''})</span>
       </li>
       <li>
-        🎯 2e chance : <b>{s.apres15}</b> pts <span className="muted">({s.apres15Top5Hits} du Top 5{s.apres15MissHit ? ', Miss trouvée !' : ''})</span>
+        🔥 Top 5 : <b>{s.top5}</b> pts <span className="muted">({s.top5Hits} trouvée{s.top5Hits > 1 ? 's' : ''})</span>
       </li>
       <li>
-        🏁 Classement final : <b>{s.final}</b> pts <span className="muted">({s.finalExactHits} place{s.finalExactHits > 1 ? 's' : ''} exacte{s.finalExactHits > 1 ? 's' : ''})</span>
+        👑 Classement final : <b>{s.final}</b> pts{' '}
+        <span className="muted">
+          ({s.missHit ? 'Miss trouvée, ' : ''}
+          {s.dauphineHits} dauphine{s.dauphineHits > 1 ? 's' : ''} à la bonne place)
+        </span>
       </li>
       <li>
         ⚡ Paris éclair : <b>{s.bets}</b> pts <span className="muted">({s.betHits} gagné{s.betHits > 1 ? 's' : ''})</span>
@@ -27,13 +31,13 @@ export function Rules() {
   return (
     <ul className="rules">
       <li>
-        🔮 <b>Avant le show</b> : +{POINTS.avantTop15} par demi-finaliste trouvée, +{POINTS.avantTop5} par finaliste, +{POINTS.avantMiss} pour Miss France.
+        🌟 <b>Top 15</b> (modifiable jusqu’à l’annonce du Top 15) : +{POINTS.top15} par demi-finaliste trouvée.
       </li>
       <li>
-        🎯 <b>2e chance</b> (après le Top 15) : +{POINTS.apres15Top5} par finaliste, +{POINTS.apres15Miss} pour Miss France.
+        🔥 <b>Top 5</b> (jusqu’à l’annonce du Top 5) : +{POINTS.top5} par finaliste trouvée.
       </li>
       <li>
-        🏁 <b>Classement final</b> (après le Top 5) : +{POINTS.finalExact} par place exacte.
+        👑 <b>Classement final</b> (jusqu’au verdict) : +{POINTS.miss} pour Miss France à la bonne place, +{POINTS.dauphine} par dauphine à la bonne place.
       </li>
       <li>
         ⚡ <b>Paris éclair</b> lancés pendant l’émission : points indiqués sur chaque pari.

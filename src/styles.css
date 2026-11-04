@@ -955,6 +955,7 @@ button.card {
 }
 .sticky-footer .btn-gold {
   flex: 1;
+  white-space: nowrap;
 }
 .counter {
   font-weight: 800;
@@ -1921,4 +1922,55 @@ body.is-tv {
   font-size: 0.75rem;
   opacity: 0.85;
   word-break: break-word;
+}
+
+/* Niveaux de pronostic */
+.level-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.level-title {
+  font-family: var(--serif);
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.level-n {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-family: var(--font);
+  font-size: 1rem;
+  font-weight: 800;
+}
+.level-locked .level-n {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.level-open {
+  border-color: rgba(242, 201, 92, 0.45);
+}
+.warn {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255, 170, 60, 0.15);
+  color: #ffd08a;
+  font-weight: 600;
+}
+.final-slots li.exact {
+  border-color: var(--good);
+  background: rgba(79, 209, 139, 0.15);
+}
+.final-slots li.wrong {
+  opacity: 0.7;
 }

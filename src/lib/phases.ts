@@ -16,15 +16,15 @@ export interface PhaseDef {
 
 // Déroulé de l'émission. L'animateur·rice (page /admin) passe d'une étape à l'autre en direct.
 export const PHASES: PhaseDef[] = [
-  { id: 'accueil', label: "Avant l'émission", short: 'Avant', emoji: '🍿', hint: 'Fais tes pronostics avant le début du show : ils seront verrouillés au lancement !', predictions: ['avant'] },
-  { id: 'ouverture', label: 'Ouverture du show', short: 'Ouverture', emoji: '✨', hint: 'Pronostics verrouillés. Installe-toi et réagis en direct !', predictions: [] },
-  { id: 'costumes', label: 'Défilé des costumes régionaux', short: 'Costumes', emoji: '🎭', round: 'costume', hint: 'Note chaque costume régional pendant le défilé.', predictions: [] },
-  { id: 'top15', label: 'Annonce du Top 15', short: 'Top 15', emoji: '🌟', hint: 'Qui sont les 15 demi-finalistes ? Ensuite, 2e chance : refais ton Top 5 !', predictions: ['apres15'] },
-  { id: 'maillot', label: 'Défilé en maillot de bain', short: 'Maillot', emoji: '👙', round: 'maillot', hint: 'Note le passage des 15 demi-finalistes.', predictions: ['apres15'] },
-  { id: 'robes', label: 'Défilé en robe de soirée', short: 'Robes', emoji: '👗', round: 'robe', hint: 'Note les robes de soirée. Dernière chance pour ton Top 5 !', predictions: ['apres15'] },
-  { id: 'top5', label: 'Annonce du Top 5', short: 'Top 5', emoji: '🔥', hint: 'Les 5 finalistes sont connues : fais ton classement final !', predictions: ['final'] },
-  { id: 'discours', label: 'Le grand oral du Top 5', short: 'Grand oral', emoji: '🎤', round: 'discours', hint: 'Note les réponses des finalistes. Classement final modifiable jusqu’au verdict.', predictions: ['final'] },
-  { id: 'verdict', label: 'Le verdict', short: 'Verdict', emoji: '👑', hint: 'Les dauphines sont annoncées une par une… Qui sera Miss France 2027 ?', predictions: [] },
+  { id: 'accueil', label: "Avant l'émission", short: 'Avant', emoji: '🍿', hint: 'Découvre les candidates et commence tes pronostics : chaque niveau reste modifiable jusqu’à son annonce.', predictions: ['avant', 'apres15', 'final'] },
+  { id: 'ouverture', label: 'Ouverture du show', short: 'Ouverture', emoji: '✨', hint: 'Découvre les Miss et peaufine tes pronostics : ton Top 15 se verrouille juste avant son annonce.', predictions: ['avant', 'apres15', 'final'] },
+  { id: 'costumes', label: 'Défilé des costumes régionaux', short: 'Costumes', emoji: '🎭', round: 'costume', hint: 'Note chaque costume régional. Dernière chance pour ton Top 15 !', predictions: ['avant', 'apres15', 'final'] },
+  { id: 'top15', label: 'Annonce du Top 15', short: 'Top 15', emoji: '🌟', hint: 'Top 15 verrouillés ! Qui sont les 15 demi-finalistes ? Ton Top 5 reste modifiable jusqu’à son annonce.', predictions: ['apres15', 'final'] },
+  { id: 'maillot', label: 'Défilé en maillot de bain', short: 'Maillot', emoji: '👙', round: 'maillot', hint: 'Note le passage des 15 demi-finalistes et ajuste ton Top 5.', predictions: ['apres15', 'final'] },
+  { id: 'robes', label: 'Défilé en robe de soirée', short: 'Robes', emoji: '👗', round: 'robe', hint: 'Note les robes de soirée. Dernière chance pour ton Top 5 !', predictions: ['apres15', 'final'] },
+  { id: 'top5', label: 'Annonce du Top 5', short: 'Top 5', emoji: '🔥', hint: 'Top 5 verrouillés ! Classe les 5 finalistes : Miss France et ses 4 dauphines.', predictions: ['final'] },
+  { id: 'discours', label: 'Le grand oral du Top 5', short: 'Grand oral', emoji: '🎤', round: 'discours', hint: 'Note les réponses des finalistes. Dernière chance pour ton classement final !', predictions: ['final'] },
+  { id: 'verdict', label: 'Le verdict', short: 'Verdict', emoji: '👑', hint: 'Classements verrouillés ! Les dauphines sont annoncées une par une… Qui sera Miss France 2027 ?', predictions: [] },
   { id: 'fin', label: 'Palmarès de la soirée', short: 'Palmarès', emoji: '🏆', hint: 'Découvre qui a eu le meilleur œil de la soirée !', predictions: [] },
 ]
 
