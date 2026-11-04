@@ -82,4 +82,5 @@ for (const f of files) {
 }
 
 const missing = Object.keys(REGIONS).filter((id) => !fs.existsSync(path.join(OUT, `${id}.webp`)))
-console.log(`\n${31 - missing.length}/31 photos pr
+console.log(`\n${31 - missing.length}/31 photos prêtes.`)
+if (missing.length) console.log(`Manquantes : ${missing.join(', ')}`)

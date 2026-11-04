@@ -1,6 +1,7 @@
 // Mode démo : tout est stocké dans le navigateur (localStorage) et synchronisé entre onglets.
 // Sert à tester l'application sans Supabase. Code admin : 0000.
 import { canEditPrediction, canRate, PHASE_BY_ID } from '../phases'
+import { bingoLines, isFullCard } from '../../data/bingo'
 import { emptySnapshot, type Snapshot } from '../types'
 import { GameError, type Backend, type Listener } from './types'
 
@@ -17,7 +18,7 @@ const now = () => new Date().toISOString()
 function read(): DB {
   try {
     const raw = localStorage.getItem(KEY)
-    if (raw) return JSON.parse(raw) as DB
+    if (raw) return { bingo: [], ...JSON.parse(raw) } as DB
   } catch {
     /* stockage indisponible */
   }
@@ -141,6 +142,32 @@ export const demoBackend: Backend = {
       db.betAnswers.push({ betId, playerId: id, choice })
     })
   },
+  async saveBingo(secret, cells, checked) {
+    mutate((db) => {
+      const id = playerId(db, secret)
+      const phase = db.game.phase
+      const cur = db.bingo.find((b) => b.playerId === id)
+      const newGrid = !cur || cur.cells.join() !== cells.join()
+      if (cur && newGrid && phase !== 'accueil') throw new GameError('LOCKED')
+      const marks = newGrid ? [] : [...new Set(checked)].filter((i) => i >= 0 && i < 25)
+      if (marks.length && (phase === 'accueil' || phase === 'fin')) throw new GameError('LOCKED')
+      const lines = bingoLines(marks).length
+      const at = now()
+      const card = {
+        playerId: id,
+        cells,
+        checked: marks,
+        lines,
+        bingoAt: cur?.bingoAt ?? (lines > 0 ? at : null),
+        fullAt: cur?.fullAt ?? (isFullCard(marks) ? at : null),
+      }
+      if (newGrid) {
+        card.bingoAt = null
+        card.fullAt = null
+      }
+      db.bingo = [...db.bingo.filter((b) => b.playerId !== id), card]
+    })
+  },
   sendReaction(r) {
     channel?.postMessage({ type: 'reaction', r })
     listeners.forEach((l) => l.onReaction(r))
@@ -210,6 +237,7 @@ export const demoBackend: Backend = {
         db.predictions = db.predictions.filter((x) => x.playerId !== id)
         db.ratings = db.ratings.filter((x) => x.playerId !== id)
         db.betAnswers = db.betAnswers.filter((x) => x.playerId !== id)
+        db.bingo = db.bingo.filter((x) => x.playerId !== id)
         for (const [s, pid] of Object.entries(db.secrets)) if (pid === id) delete db.secrets[s]
       })
     },
@@ -229,6 +257,7 @@ export const demoBackend: Backend = {
         db.ratings = []
         db.bets = []
         db.betAnswers = []
+        db.bingo = []
         if (!keepPlayers) {
           db.players = []
           db.secrets = {}

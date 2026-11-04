@@ -72,6 +72,16 @@ create table if not exists bet_answers (
   primary key (bet_id, player_id)
 );
 
+create table if not exists bingo_cards (
+  player_id uuid primary key references players (id) on delete cascade,
+  cells jsonb not null,
+  checked jsonb not null default '[]'::jsonb,
+  lines int not null default 0,
+  bingo_at timestamptz,
+  full_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
 -- ---------------------------------------------------------------- Sécurité
 -- Lecture publique des données de jeu ; aucune écriture directe :
 -- tout passe par les fonctions ci-dessous. Les secrets et le code admin sont invisibles.
@@ -83,6 +93,7 @@ alter table predictions enable row level security;
 alter table ratings enable row level security;
 alter table bets enable row level security;
 alter table bet_answers enable row level security;
+alter table bingo_cards enable row level security;
 
 drop policy if exists "lecture" on game;
 create policy "lecture" on game for select using (true);
@@ -96,6 +107,8 @@ drop policy if exists "lecture" on bets;
 create policy "lecture" on bets for select using (true);
 drop policy if exists "lecture" on bet_answers;
 create policy "lecture" on bet_answers for select using (true);
+drop policy if exists "lecture" on bingo_cards;
+create policy "lecture" on bingo_cards for select using (true);
 
 -- ---------------------------------------------------------------- Temps réel
 alter table game replica identity full;
@@ -104,6 +117,7 @@ alter table predictions replica identity full;
 alter table ratings replica identity full;
 alter table bets replica identity full;
 alter table bet_answers replica identity full;
+alter table bingo_cards replica identity full;
 
 do $$
 declare t text;
@@ -111,7 +125,7 @@ begin
   if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
     create publication supabase_realtime;
   end if;
-  foreach t in array array['game', 'players', 'predictions', 'ratings', 'bets', 'bet_answers'] loop
+  foreach t in array array['game', 'players', 'predictions', 'ratings', 'bets', 'bet_answers', 'bingo_cards'] loop
     if not exists (
       select 1 from pg_publication_tables
       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
@@ -228,6 +242,60 @@ begin
   on conflict (bet_id, player_id) do update set choice = excluded.choice, updated_at = now();
 end $$;
 
+-- ---------------------------------------------------------------- Bingo
+-- Chacun coche ses cases ; le serveur compte les lignes et note l'heure du 1er bingo,
+-- ce qui donne un ordre d'arrivée fiable pour tout le monde.
+create or replace function save_bingo(p_secret uuid, p_cells jsonb, p_checked jsonb) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_player uuid := _player_id(p_secret);
+  v_phase text;
+  v_cur bingo_cards%rowtype;
+  v_new_grid boolean;
+  v_marks int[];
+  v_set int[];
+  v_lines int := 0;
+  v_full boolean;
+  l int[];
+begin
+  select phase into v_phase from game where id = 1;
+  if jsonb_typeof(p_cells) <> 'array' or jsonb_array_length(p_cells) <> 25 then raise exception 'INVALID'; end if;
+  select * into v_cur from bingo_cards where player_id = v_player;
+  v_new_grid := v_cur.player_id is null or v_cur.cells <> p_cells;
+  -- Changer de grille : seulement avant l'émission.
+  if v_cur.player_id is not null and v_new_grid and v_phase <> 'accueil' then raise exception 'LOCKED'; end if;
+
+  if v_new_grid then
+    v_marks := '{}';
+  else
+    select coalesce(array_agg(distinct x), '{}') into v_marks
+    from (select (jsonb_array_elements_text(p_checked))::int as x) t where x between 0 and 24;
+  end if;
+  -- Cocher des cases : pendant l'émission uniquement.
+  if cardinality(v_marks) > 0 and v_phase in ('accueil', 'fin') then raise exception 'LOCKED'; end if;
+
+  v_set := v_marks || 12;
+  foreach l slice 1 in array array[
+    [0,1,2,3,4],[5,6,7,8,9],[10,11,12,13,14],[15,16,17,18,19],[20,21,22,23,24],
+    [0,5,10,15,20],[1,6,11,16,21],[2,7,12,17,22],[3,8,13,18,23],[4,9,14,19,24],
+    [0,6,12,18,24],[4,8,12,16,20]] loop
+    if l <@ v_set then v_lines := v_lines + 1; end if;
+  end loop;
+  v_full := (select count(distinct x) from unnest(v_set) x) >= 25;
+
+  insert into bingo_cards (player_id, cells, checked, lines, bingo_at, full_at, updated_at)
+  values (v_player, p_cells, to_jsonb(v_marks), v_lines,
+          case when v_lines > 0 then now() end, case when v_full then now() end, now())
+  on conflict (player_id) do update set
+    cells = excluded.cells,
+    checked = excluded.checked,
+    lines = excluded.lines,
+    -- Un bingo obtenu reste acquis (on garde l'heure du premier).
+    bingo_at = case when v_new_grid then excluded.bingo_at else coalesce(bingo_cards.bingo_at, excluded.bingo_at) end,
+    full_at = case when v_new_grid then excluded.full_at else coalesce(bingo_cards.full_at, excluded.full_at) end,
+    updated_at = now();
+end $$;
+
 -- ---------------------------------------------------------------- Admin
 create or replace function admin_check(p_pin text) returns boolean
 language sql stable security definer set search_path = public as $$
@@ -312,6 +380,7 @@ begin
   perform _check_pin(p_pin);
   delete from bet_answers where true;
   delete from bets where true;
+  delete from bingo_cards where true;
   delete from ratings where true;
   delete from predictions where true;
   if not p_keep_players then delete from players where true; end if;
@@ -323,7 +392,7 @@ end $$;
 -- Les projets Supabase récents n'ouvrent plus forcément les nouvelles tables au public :
 -- on donne explicitement la lecture des tables de jeu et l'exécution des fonctions.
 grant usage on schema public to anon, authenticated;
-grant select on game, players, predictions, ratings, bets, bet_answers to anon, authenticated;
+grant select on game, players, predictions, ratings, bets, bet_answers, bingo_cards to anon, authenticated;
 revoke all on admin_settings, player_secrets from anon, authenticated;
 grant execute on function
   join_game(text, text),
@@ -332,6 +401,7 @@ grant execute on function
   save_prediction(uuid, text, jsonb),
   save_rating(uuid, text, text, int),
   answer_bet(uuid, uuid, text),
+  save_bingo(uuid, jsonb, jsonb),
   admin_check(text),
   admin_set_phase(text, text),
   admin_set_on_stage(text, text),

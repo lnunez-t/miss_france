@@ -2,7 +2,7 @@
 // Les lectures passent par les tables (lecture seule pour le public),
 // toutes les écritures passent par des fonctions SQL qui vérifient les règles (voir supabase/schema.sql).
 import { createClient, type RealtimeChannel } from '@supabase/supabase-js'
-import type { Bet, BetAnswer, GameState, Player, Prediction, Rating, Snapshot } from '../types'
+import type { Bet, BetAnswer, BingoCard, GameState, Player, Prediction, Rating, Snapshot } from '../types'
 import { toGameError, type Backend, type Listener, type Updater } from './types'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -14,8 +14,16 @@ const mapPrediction = (r: Row): Prediction => ({ playerId: r.player_id, kind: r.
 const mapRating = (r: Row): Rating => ({ playerId: r.player_id, candidateId: r.candidate_id, round: r.round, score: r.score })
 const mapBet = (r: Row): Bet => ({ id: r.id, question: r.question, type: r.type, options: r.options ?? [], status: r.status, answer: r.answer, points: r.points, createdAt: r.created_at })
 const mapAnswer = (r: Row): BetAnswer => ({ betId: r.bet_id, playerId: r.player_id, choice: r.choice })
+const mapBingo = (r: Row): BingoCard => ({
+  playerId: r.player_id,
+  cells: r.cells ?? [],
+  checked: r.checked ?? [],
+  lines: r.lines ?? 0,
+  bingoAt: r.bingo_at,
+  fullAt: r.full_at,
+})
 
-type ListKey = 'players' | 'predictions' | 'ratings' | 'bets' | 'betAnswers'
+type ListKey = 'players' | 'predictions' | 'ratings' | 'bets' | 'betAnswers' | 'bingo'
 
 const TABLES: { table: string; key: ListKey; map: (r: Row) => any; same: (a: any, b: any) => boolean }[] = [
   { table: 'players', key: 'players', map: mapPlayer, same: (a, b) => a.id === b.id },
@@ -23,6 +31,7 @@ const TABLES: { table: string; key: ListKey; map: (r: Row) => any; same: (a: any
   { table: 'ratings', key: 'ratings', map: mapRating, same: (a, b) => a.playerId === b.playerId && a.candidateId === b.candidateId && a.round === b.round },
   { table: 'bets', key: 'bets', map: mapBet, same: (a, b) => a.id === b.id },
   { table: 'bet_answers', key: 'betAnswers', map: mapAnswer, same: (a, b) => a.betId === b.betId && a.playerId === b.playerId },
+  { table: 'bingo_cards', key: 'bingo', map: mapBingo, same: (a, b) => a.playerId === b.playerId },
 ]
 
 export function createSupabaseBackend(url: string, anonKey: string): Backend {
@@ -53,13 +62,15 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
   return {
     mode: 'live',
     async load(): Promise<Snapshot> {
-      const [game, players, predictions, ratings, bets, answers] = await Promise.all([
+      const [game, players, predictions, ratings, bets, answers, bingo] = await Promise.all([
         sb.from('game').select('*').eq('id', 1).single(),
         all('players'),
         all('predictions'),
         all('ratings'),
         all('bets'),
         all('bet_answers'),
+        // La table bingo peut manquer si le script SQL n'a pas été relancé : on ne bloque pas l'appli.
+        all('bingo_cards').catch(() => [] as Row[]),
       ])
       if (game.error) throw toGameError(new Error(game.error.message))
       return {
@@ -69,6 +80,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         ratings: ratings.map(mapRating),
         bets: bets.map(mapBet),
         betAnswers: answers.map(mapAnswer),
+        bingo: bingo.map(mapBingo),
       }
     },
 
@@ -134,6 +146,9 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     },
     async answerBet(secret, betId, choice) {
       await rpc('answer_bet', { p_secret: secret, p_bet: betId, p_choice: choice })
+    },
+    async saveBingo(secret, cells, checked) {
+      await rpc('save_bingo', { p_secret: secret, p_cells: cells, p_checked: checked })
     },
     sendReaction(r) {
       reactionChannel?.send({ type: 'broadcast', event: 'reaction', payload: r })

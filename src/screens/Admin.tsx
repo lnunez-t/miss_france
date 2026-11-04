@@ -287,7 +287,7 @@ function Regie({ pin }: { pin: string }) {
       <Section title="⚠️ Zone sensible" defaultOpen={false}>
         <p className="muted small">Pour une répétition avant le jour J : remet la partie à zéro.</p>
         <div className="admin-row wrap">
-          <button className="btn" onClick={() => confirm('Effacer pronostics, notes, paris et résultats (les joueurs restent) ?') && run(() => backend.admin.reset(pin, true), 'Partie remise à zéro.')}>
+          <button className="btn" onClick={() => confirm('Effacer pronostics, notes, paris, bingos et résultats (les joueurs restent) ?') && run(() => backend.admin.reset(pin, true), 'Partie remise à zéro.')}>
             Remettre à zéro (garder les joueurs)
           </button>
           <button className="btn btn-danger" onClick={() => confirm('TOUT effacer, y compris les joueurs ?') && run(() => backend.admin.reset(pin, false), 'Tout a été effacé.')}>

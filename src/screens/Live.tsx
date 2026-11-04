@@ -4,6 +4,7 @@ import { candidate, missLabel, SHOW_START } from '../data/candidates'
 import { canEditPrediction, currentRound, PHASE_BY_ID, PHASES, phaseIndex, RANK_TITLES, ROUNDS, roundCandidates } from '../lib/phases'
 import { candidateStats, getPrediction, leaderboard, myPicks } from '../lib/scoring'
 import { useGame } from '../lib/store'
+import { bingoLines } from '../data/bingo'
 import type { PredChouchoute } from '../lib/types'
 import { pronoPools } from './Pronos'
 import type { Tab } from './PlayerApp'
@@ -181,6 +182,28 @@ function MiniBoard({ go }: { go: (t: Tab) => void }) {
   )
 }
 
+function BingoCta({ go }: { go: (t: Tab) => void }) {
+  const { snap, me } = useGame()
+  const phase = snap.game.phase
+  if (!me || phase === 'fin') return null
+  const card = snap.bingo.find((b) => b.playerId === me.id)
+  const lines = card ? bingoLines(card.checked).length : 0
+  const first = snap.bingo.filter((b) => b.bingoAt).sort((a, b) => a.bingoAt!.localeCompare(b.bingoAt!))[0]
+  const firstName = first && snap.players.find((p) => p.id === first.playerId)?.name
+  return (
+    <button className="card cta" onClick={() => go('bingo')}>
+      <div className="cta-title">🎱 {phase === 'accueil' ? 'Découvre ta grille de bingo' : lines ? `Ton bingo : ${lines} ligne${lines > 1 ? 's' : ''} !` : 'Ton bingo t’attend'}</div>
+      <div className="cta-text">
+        {firstName ? `Premier bingo : ${firstName}. ` : ''}
+        {phase === 'accueil' ? 'Les cases se cochent dès le début de l’émission.' : 'Coche les cases dès que ça arrive à l’écran !'}
+      </div>
+      <span className="cta-arrow" aria-hidden>
+        ›
+      </span>
+    </button>
+  )
+}
+
 export function Live({ go }: { go: (t: Tab) => void }) {
   const { snap } = useGame()
   const phase = PHASE_BY_ID[snap.game.phase]
@@ -208,6 +231,7 @@ export function Live({ go }: { go: (t: Tab) => void }) {
         <BetCard key={b.id} bet={b} />
       ))}
       <PronoStatus go={go} />
+      <BingoCta go={go} />
       {phase.round && (
         <button className="card cta" onClick={() => go('candidates')}>
           <div className="cta-title">

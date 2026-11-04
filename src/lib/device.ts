@@ -52,7 +52,9 @@ export async function copyText(text: string): Promise<boolean> {
 
 export function vibrate(pattern: number | number[] = 40) {
   try {
-    navigator.vibrate?.(pattern)
+    // Le navigateur refuse de vibrer tant que personne n'a touché l'écran (ex. écran TV).
+    const activated = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation?.hasBeenActive ?? true
+    if (activated) navigator.vibrate?.(pattern)
   } catch {
     /* non supporté (iPhone) */
   }

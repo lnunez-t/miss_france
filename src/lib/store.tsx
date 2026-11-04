@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { bingoLines } from '../data/bingo'
 import { backend, toGameError, type Updater } from './backend'
 import { emptySnapshot, type Player, type PredictionKind, type Reaction, type RoundId, type Snapshot } from './types'
 
@@ -47,6 +48,7 @@ interface GameCtx {
   savePrediction(kind: PredictionKind, payload: unknown): Promise<void>
   saveRating(candidateId: string, round: RoundId, score: number): Promise<void>
   answerBet(betId: string, choice: string): Promise<void>
+  saveBingo(cells: number[], checked: number[]): Promise<void>
   react(emoji: string): void
   onReaction(fn: ReactionListener): () => void
   reload(): Promise<void>
@@ -212,6 +214,34 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }))
       try {
         await backend.answerBet(s, betId, choice)
+      } catch (e) {
+        reload()
+        throw toGameError(e)
+      }
+    },
+    async saveBingo(cells, checked) {
+      const s = requireSecret()
+      // Mise à jour optimiste des cases ; l'heure du bingo, elle, vient du serveur.
+      setSnap((cur) => {
+        const prev = cur.bingo.find((b) => b.playerId === meId)
+        const sameGrid = prev && prev.cells.join() === cells.join()
+        return {
+          ...cur,
+          bingo: [
+            ...cur.bingo.filter((b) => b.playerId !== meId),
+            {
+              playerId: meId!,
+              cells,
+              checked,
+              lines: bingoLines(checked).length,
+              bingoAt: sameGrid ? prev.bingoAt : null,
+              fullAt: sameGrid ? prev.fullAt : null,
+            },
+          ],
+        }
+      })
+      try {
+        await backend.saveBingo(s, cells, checked)
       } catch (e) {
         reload()
         throw toGameError(e)

@@ -8,18 +8,20 @@ import { PHASE_BY_ID } from '../lib/phases'
 import { scorePlayer } from '../lib/scoring'
 import { useGame } from '../lib/store'
 import { useGameEvents } from '../lib/useGameEvents'
+import { Bingo } from './Bingo'
 import { Candidates } from './Candidates'
 import { Join } from './Join'
 import { Live } from './Live'
 import { Pronos } from './Pronos'
 import { Ranking, Rules } from './Ranking'
 
-export type Tab = 'live' | 'pronos' | 'candidates' | 'ranking'
+export type Tab = 'live' | 'pronos' | 'bingo' | 'candidates' | 'ranking'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'live', label: 'Direct', icon: '🔴' },
   { id: 'pronos', label: 'Pronos', icon: '🔮' },
-  { id: 'candidates', label: 'Candidates', icon: '👑' },
+  { id: 'bingo', label: 'Bingo', icon: '🎱' },
+  { id: 'candidates', label: 'Miss', icon: '👑' },
   { id: 'ranking', label: 'Classement', icon: '🏆' },
 ]
 
@@ -165,6 +167,7 @@ export function PlayerApp() {
       <main className="content">
         {tab === 'live' && <Live go={setTab} />}
         {tab === 'pronos' && <Pronos />}
+        {tab === 'bingo' && <Bingo />}
         {tab === 'candidates' && <Candidates />}
         {tab === 'ranking' && <Ranking />}
       </main>

@@ -3,6 +3,7 @@ import { useNotify } from '../components/ui'
 import { candidate, missLabel } from '../data/candidates'
 import { PHASE_BY_ID, VERDICT_TITLES } from './phases'
 import { myPicks, POINTS, rankPoints } from './scoring'
+import { bingoRanking } from '../screens/Bingo'
 import { useGame } from './store'
 import type { Snapshot } from './types'
 
@@ -69,6 +70,32 @@ export function useGameEvents(mode: 'player' | 'tv') {
       }
       announce({ kicker: VERDICT_TITLES[idx], title: missLabel(id), candidateId: id, note, big: isMiss })
     })
+
+    // Bingo : tout le monde est prévenu, dans l'ordre d'arrivée fixé par le serveur.
+    const bingoOrder = bingoRanking(snap, 'bingoAt')
+    for (const card of snap.bingo) {
+      const was = before.bingo.find((b) => b.playerId === card.playerId)
+      const player = snap.players.find((p) => p.id === card.playerId)
+      if (!player) continue
+      const isMe = player.id === meId
+      if (card.bingoAt && !was?.bingoAt) {
+        const rank = bingoOrder.findIndex((b) => b.player.id === player.id) + 1
+        if (rank === 1)
+          announce({
+            kicker: '🎱 BINGO !',
+            title: `${player.avatar} ${player.name}`,
+            note: isMe ? 'Tu es la première personne à faire bingo ! Crie « BINGO, JEAN-PIERRE ! »' : 'Premier bingo de la soirée !',
+            big: true,
+          })
+        else toast(<>🎱 Bingo n°{rank} : <b>{player.avatar} {player.name}</b>{isMe ? ' (toi !)' : ''}</>, isMe ? 'good' : 'info')
+      }
+      if (card.fullAt && !was?.fullAt) {
+        const first = bingoRanking(snap, 'fullAt')[0]?.player.id === player.id
+        if (first)
+          announce({ kicker: '👑 CARTON PLEIN !', title: `${player.avatar} ${player.name}`, note: 'Couronné(e) Miss Canapé 2027 !', big: true })
+        else toast(<>👑 Carton plein pour <b>{player.name}</b> !</>)
+      }
+    }
 
     for (const bet of snap.bets) {
       const was = before.bets.find((b) => b.id === bet.id)

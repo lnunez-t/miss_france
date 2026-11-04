@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { BINGO_ITEMS, bingoLines, isFullCard, newBingoCard } from '../data/bingo'
 import { CANDIDATES } from '../data/candidates'
 import { canEditPrediction, canRate, currentRound, roundCandidates } from './phases'
 import { awards, familyFavorites, leaderboard, POINTS, scorePlayer } from './scoring'
@@ -108,5 +109,27 @@ describe('étapes', () => {
     const r = { top15: ids.slice(0, 15), top5: [], verdict: [] }
     expect(roundCandidates('maillot', r)).toHaveLength(15)
     expect(roundCandidates('costume', r)).toHaveLength(31)
+  })
+})
+
+describe('bingo', () => {
+  it('grille de 25 cases sans doublon, centre offert', () => {
+    const g = newBingoCard()
+    expect(g).toHaveLength(25)
+    expect(g[12]).toBe(-1)
+    const items = g.filter((x) => x >= 0)
+    expect(new Set(items).size).toBe(24)
+    expect(items.every((x) => x < BINGO_ITEMS.length)).toBe(true)
+  })
+  it('lignes, colonnes, diagonales et carton plein', () => {
+    expect(bingoLines([])).toHaveLength(0)
+    expect(bingoLines([0, 1, 2, 3])).toHaveLength(0)
+    expect(bingoLines([0, 1, 2, 3, 4])).toHaveLength(1) // ligne
+    expect(bingoLines([2, 7, 17, 22])).toHaveLength(1) // colonne du milieu (centre offert)
+    expect(bingoLines([0, 6, 18, 24])).toHaveLength(1) // diagonale
+    const all = Array.from({ length: 25 }, (_, i) => i).filter((i) => i !== 12)
+    expect(bingoLines(all)).toHaveLength(12)
+    expect(isFullCard(all)).toBe(true)
+    expect(isFullCard(all.slice(1))).toBe(false)
   })
 })

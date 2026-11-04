@@ -29,6 +29,8 @@ export interface Backend {
   /** score = 0 retire la note. */
   saveRating(secret: string, candidateId: string, round: RoundId, score: number): Promise<void>
   answerBet(secret: string, betId: string, choice: string): Promise<void>
+  /** Enregistre sa grille et ses cases cochées (le serveur calcule les lignes et l'heure du bingo). */
+  saveBingo(secret: string, cells: number[], checked: number[]): Promise<void>
   sendReaction(r: Reaction): void
 
   admin: {

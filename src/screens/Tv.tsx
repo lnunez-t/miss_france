@@ -8,6 +8,7 @@ import { currentRound, PHASE_BY_ID, RANK_TITLES, ROUNDS, roundCandidates } from 
 import { awards, candidateStats, familyFavorites, leaderboard } from '../lib/scoring'
 import { useGame } from '../lib/store'
 import { useGameEvents } from '../lib/useGameEvents'
+import { BingoWinners } from './Bingo'
 import { Timeline } from './Live'
 
 /** Écran à projeter sur la télé / l'ordinateur du salon. */
@@ -170,6 +171,12 @@ export function Tv() {
               </li>
             ))}
           </ol>
+          {snap.bingo.some((b) => b.bingoAt) && (
+            <>
+              <h2 className="tv-h2">🎱 Bingo</h2>
+              <BingoWinners compact />
+            </>
+          )}
           {favs.length > 0 && (
             <>
               <h2 className="tv-h2">😍 Coups de cœur{round ? ` · ${ROUNDS[round].label}` : ''}</h2>

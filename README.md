@@ -5,6 +5,7 @@ Chacun ouvre un **simple lien** sur son téléphone, tape son prénom, et suit t
 
 - 🔮 **Pronostics en 3 niveaux** : Top 15, Top 5, puis classement final (Miss France + 4 dauphines) — chacun modifiable jusqu'à **juste avant son annonce**
 - ⭐ **Notes en direct** à chaque défilé (costumes, maillot, robes, grand oral) — la candidate « sur scène » s'affiche sur tous les téléphones
+- 🎱 **Bingo** : une grille 5×5 différente pour chacun (« JPF : Quelle émotion ! », « Coupure pub PILE avant le résultat »…). Chacun coche ses cases ; le **premier bingo** et le **premier carton plein** sont annoncés sur tous les téléphones et l'écran TV
 - ⚡ **Paris éclair** lancés pendant l'émission (« JPF va-t-il se tromper de prénom ? »…)
 - 😍 **Réactions** émojis qui s'envolent sur tous les écrans
 - 🎉 **Annonces plein écran** à chaque qualifiée et pour le verdict, avec les points gagnés
