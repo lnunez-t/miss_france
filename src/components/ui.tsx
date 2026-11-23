@@ -33,38 +33,132 @@ export function CandidatePhoto({ id, size = 'md', className = '' }: { id: string
   )
 }
 
-/** Photo d'une candidate en plein écran (version HD si disponible). Touche ou Échap pour fermer. */
-export function PhotoViewer({ id, onClose }: { id: string | null; onClose: () => void }) {
-  const c = candidate(id)
-  const [src, setSrc] = useState<string | null>(null)
+/**
+ * Photo d'une candidate en plein écran (version HD si disponible).
+ * Avec `ids`, on passe d'une candidate à l'autre (balayage, flèches ‹ ›, touches ← →).
+ * `footer` affiche des actions sous la photo (ex. bouton « Choisir »).
+ * Toucher le fond, ✕ ou Échap ferme.
+ */
+export function PhotoViewer({
+  id,
+  onClose,
+  ids,
+  footer,
+}: {
+  id: string | null
+  onClose: () => void
+  ids?: string[]
+  footer?: (id: string) => ReactNode
+}) {
+  const [current, setCurrent] = useState(id)
+  const [hdFailed, setHdFailed] = useState(false)
   const close = useRef(onClose)
   close.current = onClose
+  const touchX = useRef<number | null>(null)
+  const swiped = useRef(false)
+
+  useEffect(() => setCurrent(id), [id])
+  // Bloque le défilement de la page derrière (sans toucher au blocage posé par une fiche ouverte).
+  useEffect(() => {
+    if (!id || document.body.classList.contains('no-scroll')) return
+    document.body.classList.add('no-scroll')
+    return () => document.body.classList.remove('no-scroll')
+  }, [id])
+  useEffect(() => setHdFailed(false), [current])
+
+  const list = ids && current && ids.includes(current) ? ids : null
+  const go = useCallback(
+    (step: number) => {
+      if (!list || !current) return
+      setCurrent(list[(list.indexOf(current) + step + list.length) % list.length])
+    },
+    [list, current],
+  )
+
   useEffect(() => {
     if (!id) return
-    setSrc(`/photos/hd/${id}.webp`)
     // Capture sur window : Échap ferme la photo sans fermer aussi la fiche en dessous.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      e.stopPropagation()
-      close.current()
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        close.current()
+      } else if (e.key === 'ArrowRight') go(1)
+      else if (e.key === 'ArrowLeft') go(-1)
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [id])
-  if (!id || !c || !src) return null
+  }, [id, go])
+
+  const c = candidate(current)
+  if (!current || !c) return null
+  const pos = list ? list.indexOf(current) : -1
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation()
+
   return (
-    <div className="photo-viewer" role="dialog" aria-modal="true" aria-label={`Photo de Miss ${c.region}`} onClick={onClose}>
+    <div
+      className="photo-viewer"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Photo de Miss ${c.region}`}
+      onClick={() => {
+        // Un balayage ne doit pas fermer la photo.
+        if (swiped.current) swiped.current = false
+        else onClose()
+      }}
+      onTouchStart={(e) => {
+        touchX.current = e.touches[0].clientX
+        swiped.current = false
+      }}
+      onTouchEnd={(e) => {
+        if (touchX.current == null || !list) return
+        const dx = e.changedTouches[0].clientX - touchX.current
+        touchX.current = null
+        if (Math.abs(dx) > 50) {
+          swiped.current = true
+          go(dx < 0 ? 1 : -1)
+        }
+      }}
+    >
       <img
-        src={src}
+        key={current}
+        src={hdFailed ? `/photos/${current}.webp` : `/photos/hd/${current}.webp`}
         alt={`Miss ${c.region}, ${c.name}`}
-        onError={() => {
-          if (src.includes('/hd/')) setSrc(`/photos/${id}.webp`)
-        }}
+        onError={() => setHdFailed(true)}
       />
       <div className="photo-viewer-caption">
         <strong>Miss {c.region}</strong> · {c.name}
+        {list && (
+          <span className="muted small">
+            {' '}
+            · {pos + 1}/{list.length}
+          </span>
+        )}
       </div>
-      <button className="icon-btn photo-viewer-close" onClick={onClose} aria-label="Fermer la photo">
+      {footer && (
+        <div className="photo-viewer-footer" onClick={stop}>
+          {footer(current)}
+        </div>
+      )}
+      {list && list.length > 1 && (
+        <>
+          <button className="photo-viewer-nav prev" onClick={(e) => {
+              stop(e)
+              go(-1)
+            }} aria-label="Miss précédente">
+            ‹
+          </button>
+          <button className="photo-viewer-nav next" onClick={(e) => {
+              stop(e)
+              go(1)
+            }} aria-label="Miss suivante">
+            ›
+          </button>
+        </>
+      )}
+      <button className="icon-btn photo-viewer-close" onClick={(e) => {
+              stop(e)
+              onClose()
+            }} aria-label="Fermer la photo">
         ✕
       </button>
     </div>

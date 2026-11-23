@@ -921,6 +921,68 @@ button.card {
   text-align: center;
   transition: transform 0.1s, border-color 0.15s;
 }
+.tile-wrap {
+  position: relative;
+  display: flex;
+}
+.tile-wrap .tile {
+  flex: 1;
+  min-width: 0;
+}
+/* Même encart que la photo (bordure 2 px + marge 6 px) pour y placer la loupe. */
+.tile-zoom-zone {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 8px;
+  pointer-events: none;
+}
+.tile-zoom-zone > div {
+  position: relative;
+  aspect-ratio: 4 / 5;
+}
+.tile-zoom {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.6);
+  font-size: 0.95rem;
+  pointer-events: auto;
+}
+.photo-viewer-footer {
+  width: min(100%, 420px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: default;
+}
+.photo-viewer-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 64px;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 2rem;
+  line-height: 1;
+}
+.photo-viewer-nav.prev {
+  left: 6px;
+}
+.photo-viewer-nav.next {
+  right: 6px;
+}
 .tile:active:not(:disabled) {
   transform: scale(0.96);
 }
@@ -1042,8 +1104,8 @@ button.card {
   flex-direction: column;
   gap: 8px;
 }
+/* Colonne fixe pour le titre : photos et noms alignés d'une ligne à l'autre. */
 .final-slots li {
-  /* Colonne fixe pour le titre : les photos et les noms s'alignent d'une ligne à l'autre. */
   display: grid;
   grid-template-columns: 7.5rem 1fr;
   align-items: center;
@@ -1212,10 +1274,10 @@ button.card {
 }
 .photo-viewer img {
   max-width: 100%;
-  max-height: calc(100% - 48px);
+  min-height: 0;
+  flex: 0 1 auto;
   object-fit: contain;
   border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 .photo-viewer-caption {
   text-align: center;
@@ -2013,6 +2075,12 @@ body.is-tv {
 
 /* Petits écrans (iPhone SE…) */
 @media (max-width: 380px) {
+  .final-slots li {
+    grid-template-columns: 6.2rem 1fr;
+  }
+  .slot-title {
+    font-size: 0.82rem;
+  }
   body {
     font-size: 16px;
   }

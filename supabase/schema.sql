@@ -180,6 +180,7 @@ end $$;
 
 revoke execute on function _player_id(uuid) from public, anon, authenticated;
 revoke execute on function _check_pin(text) from public, anon, authenticated;
+revoke execute on function _hash_code(uuid, text) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------- Joueurs
 drop function if exists join_game(text, text);
@@ -266,7 +267,7 @@ begin
   select phase into v_phase from game where id = 1;
   v_round_phase := case p_round when 'costume' then 'costumes' when 'maillot' then 'maillot'
                                 when 'robe' then 'robes' when 'discours' then 'discours' end;
-  if v_round_phase is null then raise exception 'INVALID'; end if;
+  if v_round_phase is null or length(coalesce(p_candidate, '')) not between 1 and 64 then raise exception 'INVALID'; end if;
   if v_phase = 'fin' or _phase_index(v_phase) < _phase_index(v_round_phase) then raise exception 'LOCKED'; end if;
   if coalesce(p_score, 0) = 0 then
     delete from ratings where player_id = v_player and candidate_id = p_candidate and round = p_round;
@@ -304,7 +305,10 @@ declare
   l int[];
 begin
   select phase into v_phase from game where id = 1;
-  if jsonb_typeof(p_cells) <> 'array' or jsonb_array_length(p_cells) <> 25 then raise exception 'INVALID'; end if;
+  if jsonb_typeof(p_cells) <> 'array' or jsonb_array_length(p_cells) <> 25 or length(p_cells::text) > 2000
+     or jsonb_typeof(coalesce(p_checked, '[]'::jsonb)) <> 'array' or jsonb_array_length(coalesce(p_checked, '[]'::jsonb)) > 25 then
+    raise exception 'INVALID';
+  end if;
   select * into v_cur from bingo_cards where player_id = v_player;
   v_new_grid := v_cur.player_id is null or v_cur.cells <> p_cells;
   -- Changer de grille : seulement avant l'émission.
@@ -393,4 +397,74 @@ begin
   delete from bets where id = p_id;
 end $$;
 
-create or replace function admin_rename_player(p_pin text, p_id uuid, p_name 
+create or replace function admin_rename_player(p_pin text, p_id uuid, p_name text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  perform _check_pin(p_pin);
+  update players set name = _clean_name(p_name) where id = p_id;
+exception when unique_violation then
+  raise exception 'NAME_TAKEN';
+end $$;
+
+create or replace function admin_delete_player(p_pin text, p_id uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  perform _check_pin(p_pin);
+  delete from players where id = p_id;
+end $$;
+
+create or replace function admin_player_secret(p_pin text, p_id uuid) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare v uuid;
+begin
+  perform _check_pin(p_pin);
+  select secret into v from player_secrets where player_id = p_id;
+  if v is null then raise exception 'NOT_FOUND'; end if;
+  return v;
+end $$;
+
+create or replace function admin_reset(p_pin text, p_keep_players boolean) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  perform _check_pin(p_pin);
+  delete from bet_answers where true;
+  delete from bets where true;
+  delete from bingo_cards where true;
+  delete from ratings where true;
+  delete from predictions where true;
+  if not p_keep_players then delete from players where true; end if;
+  update game set phase = 'accueil', on_stage = null,
+    results = '{"top15":[],"top5":[],"verdict":[]}'::jsonb, updated_at = now() where id = 1;
+end $$;
+
+-- ---------------------------------------------------------------- Droits d'accès
+-- Les projets Supabase récents n'ouvrent plus forcément les nouvelles tables au public :
+-- on donne explicitement la lecture des tables de jeu et l'exécution des fonctions.
+grant usage on schema public to anon, authenticated;
+grant select on game, players, predictions, ratings, bets, bet_answers, bingo_cards to anon, authenticated;
+revoke all on admin_settings, player_secrets from anon, authenticated;
+grant execute on function
+  join_game(text, text, text),
+  reconnect(text, text),
+  set_code(uuid, text),
+  whoami(uuid),
+  update_profile(uuid, text, text),
+  save_prediction(uuid, text, jsonb),
+  save_rating(uuid, text, text, int),
+  answer_bet(uuid, uuid, text),
+  save_bingo(uuid, jsonb, jsonb),
+  admin_check(text),
+  admin_set_phase(text, text),
+  admin_set_on_stage(text, text),
+  admin_set_results(text, jsonb),
+  admin_create_bet(text, text, text, jsonb, int),
+  admin_update_bet(text, uuid, text, text),
+  admin_delete_bet(text, uuid),
+  admin_rename_player(text, uuid, text),
+  admin_delete_player(text, uuid),
+  admin_player_secret(text, uuid),
+  admin_reset(text, boolean)
+to anon, authenticated;
+
+-- Demande à l'API Supabase de prendre en compte tout de suite les nouvelles fonctions.
+notify pgrst, 'reload schema';

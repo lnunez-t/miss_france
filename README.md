@@ -31,6 +31,7 @@ Ouvre http://localhost:5173. Sans configuration Supabase, l'appli tourne en **mo
    ```sql
    update admin_settings set pin = 'ton-code-secret';
    ```
+   Prends un code **long (8 caractères ou plus, lettres et chiffres)** : il n'y a pas de limite d'essais sur le code admin, un code à 4 chiffres pourrait être deviné.
 4. Menu **Project Settings › API** : note l'**URL** et la clé **anon public**.
 
 ### 2. Hébergement — Vercel
