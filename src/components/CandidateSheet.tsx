@@ -1,13 +1,15 @@
+import { useState } from 'react'
 import { candidate } from '../data/candidates'
 import { canRate, RANK_TITLES, ROUND_IDS, ROUNDS, roundCandidates } from '../lib/phases'
 import { candidateStats, finalRank, getPrediction } from '../lib/scoring'
 import { useGame } from '../lib/store'
 import type { PredChouchoute } from '../lib/types'
-import { CandidatePhoto, Sheet, Stars, useNotify } from './ui'
+import { CandidatePhoto, PhotoViewer, Sheet, Stars, useNotify } from './ui'
 
 export function CandidateSheet({ id, onClose }: { id: string | null; onClose: () => void }) {
   const { snap, me, saveRating, savePrediction } = useGame()
   const { toast } = useNotify()
+  const [zoom, setZoom] = useState(false)
   const c = candidate(id)
   if (!id || !c) return <Sheet open={false} onClose={onClose}>{null}</Sheet>
 
@@ -32,7 +34,12 @@ export function CandidateSheet({ id, onClose }: { id: string | null; onClose: ()
   return (
     <Sheet open onClose={onClose} title={`Miss ${c.region}`}>
       <div className="cand-detail">
-        <CandidatePhoto id={id} size="lg" />
+        <button className="photo-zoom" onClick={() => setZoom(true)} aria-label={`Voir la photo de Miss ${c.region} en grand`}>
+          <CandidatePhoto id={id} size="lg" />
+          <span className="photo-zoom-hint" aria-hidden>
+            🔍
+          </span>
+        </button>
         <div className="cand-info">
           <div className="cand-name">{c.name}</div>
           <div className="muted">
@@ -82,6 +89,7 @@ export function CandidateSheet({ id, onClose }: { id: string | null; onClose: ()
           Moyenne générale de la famille : <b>{stats.average.toFixed(1)}/5</b> sur {stats.votes} notes
         </p>
       )}
+      {zoom && <PhotoViewer id={id} onClose={() => setZoom(false)} />}
     </Sheet>
   )
 }

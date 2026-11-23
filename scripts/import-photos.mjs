@@ -3,7 +3,8 @@
 // 1. Dépose les images (jpg, png, webp…) dans le dossier photos-src/ à la racine du projet.
 //    Le nom de fichier doit contenir la région : « Miss-Alsace.jpg », « nouvelle_caledonie.png »,
 //    « 20-Lana-Prost-Nouvelle-Caledonie.jpeg »… (accents, majuscules et tirets ignorés).
-// 2. Le script recadre en portrait 3:4 (450×600), compresse en WebP et écrit public/photos/<id>.webp.
+// 2. Le script recadre en portrait 3:4 (450×600), compresse en WebP et écrit public/photos/<id>.webp,
+//    plus une version HD non recadrée (photo en grand) dans public/photos/hd/<id>.webp.
 import fs from 'node:fs'
 import path from 'node:path'
 import sharp from 'sharp'
@@ -61,7 +62,7 @@ if (!fs.existsSync(SRC)) {
   console.log(`📁 Dossier créé : ${SRC}\n   Dépose les photos dedans puis relance « npm run photos ».`)
   process.exit(0)
 }
-fs.mkdirSync(OUT, { recursive: true })
+fs.mkdirSync(path.join(OUT, 'hd'), { recursive: true })
 
 const files = fs.readdirSync(SRC).filter((f) => /\.(jpe?g|png|webp|avif|heic|tiff?)$/i.test(f))
 const done = new Set()
@@ -77,6 +78,12 @@ for (const f of files) {
     .resize(450, 600, { fit: 'cover', position: 'top' })
     .webp({ quality: 80 })
     .toFile(path.join(OUT, `${id}.webp`))
+  // Version HD non recadrée, pour l'affichage en plein écran.
+  await sharp(path.join(SRC, f))
+    .rotate()
+    .resize(900, 1350, { fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 80 })
+    .toFile(path.join(OUT, 'hd', `${id}.webp`))
   done.add(id)
   console.log(`✅ ${f} → public/photos/${id}.webp`)
 }

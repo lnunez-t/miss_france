@@ -33,6 +33,44 @@ export function CandidatePhoto({ id, size = 'md', className = '' }: { id: string
   )
 }
 
+/** Photo d'une candidate en plein écran (version HD si disponible). Touche ou Échap pour fermer. */
+export function PhotoViewer({ id, onClose }: { id: string | null; onClose: () => void }) {
+  const c = candidate(id)
+  const [src, setSrc] = useState<string | null>(null)
+  const close = useRef(onClose)
+  close.current = onClose
+  useEffect(() => {
+    if (!id) return
+    setSrc(`/photos/hd/${id}.webp`)
+    // Capture sur window : Échap ferme la photo sans fermer aussi la fiche en dessous.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      close.current()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [id])
+  if (!id || !c || !src) return null
+  return (
+    <div className="photo-viewer" role="dialog" aria-modal="true" aria-label={`Photo de Miss ${c.region}`} onClick={onClose}>
+      <img
+        src={src}
+        alt={`Miss ${c.region}, ${c.name}`}
+        onError={() => {
+          if (src.includes('/hd/')) setSrc(`/photos/${id}.webp`)
+        }}
+      />
+      <div className="photo-viewer-caption">
+        <strong>Miss {c.region}</strong> · {c.name}
+      </div>
+      <button className="icon-btn photo-viewer-close" onClick={onClose} aria-label="Fermer la photo">
+        ✕
+      </button>
+    </div>
+  )
+}
+
 /* ------------------------------------------------------------------ Étoiles */
 
 const STAR_LABELS = ['Bof', 'Moyen', 'Bien', 'Très bien', 'Sublime !']
