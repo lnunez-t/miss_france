@@ -34,8 +34,57 @@ function readTab(): Tab {
   }
 }
 
+function CodeSettings() {
+  const { hasCode, setCode } = useGame()
+  const { toast } = useNotify()
+  const [code, setValue] = useState('')
+  const [busy, setBusy] = useState(false)
+  return (
+    <section>
+      <h3 className="section-title">🔑 Mon code secret</h3>
+      <p className="muted small">
+        {hasCode
+          ? 'Il te permet de revenir dans la partie (onglet « Déjà inscrit ») si tu es déconnecté ou si tu changes de téléphone.'
+          : '⚠️ Tu n’as pas encore de code : sans lui, tu ne pourras pas revenir dans la partie si tu es déconnecté. Choisis-en un !'}
+      </p>
+      <form
+        className="code-row"
+        onSubmit={async (e) => {
+          e.preventDefault()
+          if (code.length !== 4) return toast('Le code doit faire 4 chiffres.', 'bad')
+          setBusy(true)
+          try {
+            await setCode(code)
+            setValue('')
+            toast('Code enregistré, retiens-le bien !', 'good')
+          } catch (err) {
+            toast((err as Error).message, 'bad')
+          } finally {
+            setBusy(false)
+          }
+        }}
+      >
+        <input
+          className="input input-code"
+          value={code}
+          inputMode="numeric"
+          pattern="[0-9]*"
+          autoComplete="off"
+          maxLength={4}
+          placeholder="••••"
+          aria-label="Nouveau code à 4 chiffres"
+          onChange={(e) => setValue(e.target.value.replace(/\D/g, '').slice(0, 4))}
+        />
+        <button className="btn btn-gold" disabled={busy || code.length !== 4}>
+          {hasCode ? 'Changer' : 'Enregistrer'}
+        </button>
+      </form>
+    </section>
+  )
+}
+
 function Profile({ onClose }: { onClose: () => void }) {
-  const { me, updateProfile, logout } = useGame()
+  const { me, hasCode, updateProfile, logout } = useGame()
   const { toast } = useNotify()
   const [name, setName] = useState(me?.name ?? '')
   const [avatar, setAvatar] = useState(me?.avatar ?? AVATARS[0])
@@ -68,6 +117,8 @@ function Profile({ onClose }: { onClose: () => void }) {
           Enregistrer
         </button>
       </section>
+
+      <CodeSettings />
 
       <section>
         <h3 className="section-title">📣 Inviter du monde</h3>
@@ -103,7 +154,10 @@ function Profile({ onClose }: { onClose: () => void }) {
       <button
         className="btn btn-ghost btn-block"
         onClick={() => {
-          if (confirm('Te déconnecter de ce téléphone ? Tes points sont conservés, mais tu auras besoin d’un lien de reconnexion.')) {
+          const msg = hasCode
+            ? 'Te déconnecter de ce téléphone ? Tes points sont conservés : pour revenir, choisis « Déjà inscrit » et entre ton code.'
+            : 'Te déconnecter de ce téléphone ? Tu n’as pas de code secret : pour revenir, il te faudra un lien de reconnexion. Définis plutôt un code juste au-dessus !'
+          if (confirm(msg)) {
             logout()
             onClose()
           }
@@ -116,7 +170,7 @@ function Profile({ onClose }: { onClose: () => void }) {
 }
 
 export function PlayerApp() {
-  const { ready, me, snap, connected, connectionError } = useGame()
+  const { ready, me, snap, connected, connectionError, hasCode } = useGame()
   const [tab, setTabState] = useState<Tab>(readTab)
   const [sheet, setSheet] = useState<'profile' | 'invite' | null>(null)
   useGameEvents('player')
@@ -163,6 +217,11 @@ export function PlayerApp() {
       </header>
       {backend.mode === 'demo' && <div className="demo-banner">Mode démo (données sur cet appareil uniquement)</div>}
       <ConnectionBanner connected={connected} detail={connectionError} />
+      {!hasCode && (
+        <button className="code-banner" onClick={() => setSheet('profile')}>
+          🔑 Choisis ton code secret pour pouvoir revenir dans la partie depuis un autre téléphone ›
+        </button>
+      )}
 
       <main className="content">
         {tab === 'live' && <Live go={setTab} />}

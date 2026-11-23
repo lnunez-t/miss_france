@@ -10,6 +10,9 @@ export interface Listener {
   onStatus: (connected: boolean, detail?: string) => void
 }
 
+/** Le joueur connecté, avec l'info « a-t-il défini un code de reconnexion ». */
+export type Me = Player & { hasCode: boolean }
+
 export interface NewBet {
   question: string
   type: Bet['type']
@@ -22,8 +25,12 @@ export interface Backend {
   load(): Promise<Snapshot>
   subscribe(l: Listener): () => void
 
-  join(name: string, avatar: string): Promise<Session>
-  whoami(secret: string): Promise<Player | null>
+  /** code : 4 chiffres, pour pouvoir se reconnecter plus tard. */
+  join(name: string, avatar: string, code: string): Promise<Session>
+  /** Retrouver son compte avec son prénom et son code. */
+  reconnect(name: string, code: string): Promise<Session>
+  setCode(secret: string, code: string): Promise<void>
+  whoami(secret: string): Promise<Me | null>
   updateProfile(secret: string, name: string, avatar: string): Promise<void>
   savePrediction(secret: string, kind: PredictionKind, payload: unknown): Promise<void>
   /** score = 0 retire la note. */
@@ -49,13 +56,16 @@ export interface Backend {
 }
 
 /** Codes d'erreur communs aux deux modes. */
-export type ErrorCode = 'NAME_TAKEN' | 'LOCKED' | 'BAD_PIN' | 'NOT_FOUND' | 'INVALID' | 'NETWORK'
+export type ErrorCode = 'NAME_TAKEN' | 'LOCKED' | 'BAD_PIN' | 'BAD_CODE' | 'NO_CODE' | 'TOO_MANY' | 'NOT_FOUND' | 'INVALID' | 'NETWORK'
 
 const MESSAGES: Record<ErrorCode, string> = {
   NAME_TAKEN: 'Ce prénom est déjà pris. Ajoute une initiale (ex. « Marie D. »).',
   LOCKED: 'Trop tard, c’est verrouillé pour cette étape !',
   BAD_PIN: 'Code admin incorrect.',
-  NOT_FOUND: 'Joueur introuvable. Rejoins la partie à nouveau.',
+  BAD_CODE: 'Code incorrect. Réessaie !',
+  NO_CODE: 'Ce joueur n’a pas encore de code. Demande ton lien de reconnexion à la personne qui anime la soirée.',
+  TOO_MANY: 'Trop d’essais ratés. Patiente 5 minutes avant de réessayer.',
+  NOT_FOUND: 'Joueur introuvable. Vérifie l’orthographe du prénom.',
   INVALID: 'Données invalides.',
   NETWORK: 'Connexion perdue. Vérifie ton réseau et réessaie.',
 }

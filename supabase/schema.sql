@@ -35,6 +35,10 @@ create table if not exists player_secrets (
   player_id uuid primary key references players (id) on delete cascade,
   secret uuid not null unique default gen_random_uuid()
 );
+-- Code à 4 chiffres pour se reconnecter (stocké haché) + anti-essais en rafale.
+alter table player_secrets add column if not exists code_hash text;
+alter table player_secrets add column if not exists failed_attempts int not null default 0;
+alter table player_secrets add column if not exists locked_until timestamptz;
 
 create table if not exists predictions (
   player_id uuid not null references players (id) on delete cascade,
@@ -167,24 +171,65 @@ begin
   return v;
 end $$;
 
+create or replace function _hash_code(p_player uuid, p_code text) returns text
+language plpgsql immutable as $$
+begin
+  if p_code is null or p_code !~ '^[0-9]{4}$' then raise exception 'INVALID'; end if;
+  return encode(sha256(convert_to(p_player::text || ':' || p_code, 'UTF8')), 'hex');
+end $$;
+
 revoke execute on function _player_id(uuid) from public, anon, authenticated;
 revoke execute on function _check_pin(text) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------- Joueurs
-create or replace function join_game(p_name text, p_avatar text) returns json
+drop function if exists join_game(text, text);
+create or replace function join_game(p_name text, p_avatar text, p_code text default null) returns json
 language plpgsql security definer set search_path = public as $$
 declare v_id uuid; v_secret uuid; v_name text := _clean_name(p_name);
 begin
   insert into players (name, avatar) values (v_name, left(coalesce(p_avatar, '🙂'), 16)) returning id into v_id;
-  insert into player_secrets (player_id) values (v_id) returning secret into v_secret;
+  insert into player_secrets (player_id, code_hash)
+  values (v_id, case when p_code is not null then _hash_code(v_id, p_code) end)
+  returning secret into v_secret;
   return json_build_object('playerId', v_id, 'secret', v_secret);
 exception when unique_violation then
   raise exception 'NAME_TAKEN';
 end $$;
 
+-- Se reconnecter avec son prénom et son code. Renvoie une erreur sous forme de JSON
+-- (et non une exception) pour que le compteur d'essais ratés soit bien enregistré.
+create or replace function reconnect(p_name text, p_code text) returns json
+language plpgsql security definer set search_path = public as $$
+declare v_id uuid; s player_secrets%rowtype;
+begin
+  select id into v_id from players where lower(name) = lower(btrim(coalesce(p_name, '')));
+  if v_id is null then return json_build_object('error', 'NOT_FOUND'); end if;
+  select * into s from player_secrets where player_id = v_id for update;
+  if s.code_hash is null then return json_build_object('error', 'NO_CODE'); end if;
+  if s.locked_until is not null and s.locked_until > now() then return json_build_object('error', 'TOO_MANY'); end if;
+  if coalesce(p_code, '') !~ '^[0-9]{4}$' or s.code_hash <> _hash_code(v_id, p_code) then
+    update player_secrets set
+      failed_attempts = case when failed_attempts + 1 >= 5 then 0 else failed_attempts + 1 end,
+      locked_until = case when failed_attempts + 1 >= 5 then now() + interval '5 minutes' else locked_until end
+    where player_id = v_id;
+    return json_build_object('error', 'BAD_CODE');
+  end if;
+  update player_secrets set failed_attempts = 0, locked_until = null where player_id = v_id;
+  return json_build_object('playerId', v_id, 'secret', s.secret);
+end $$;
+
+create or replace function set_code(p_secret uuid, p_code text) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_player uuid := _player_id(p_secret);
+begin
+  update player_secrets set code_hash = _hash_code(v_player, p_code), failed_attempts = 0, locked_until = null
+  where player_id = v_player;
+end $$;
+
 create or replace function whoami(p_secret uuid) returns json
 language sql stable security definer set search_path = public as $$
-  select row_to_json(p) from players p join player_secrets s on s.player_id = p.id where s.secret = p_secret
+  select (to_jsonb(p) || jsonb_build_object('has_code', s.code_hash is not null))::json
+  from players p join player_secrets s on s.player_id = p.id where s.secret = p_secret
 $$;
 
 create or replace function update_profile(p_secret uuid, p_name text, p_avatar text) returns void
@@ -395,7 +440,9 @@ grant usage on schema public to anon, authenticated;
 grant select on game, players, predictions, ratings, bets, bet_answers, bingo_cards to anon, authenticated;
 revoke all on admin_settings, player_secrets from anon, authenticated;
 grant execute on function
-  join_game(text, text),
+  join_game(text, text, text),
+  reconnect(text, text),
+  set_code(uuid, text),
   whoami(uuid),
   update_profile(uuid, text, text),
   save_prediction(uuid, text, jsonb),

@@ -128,12 +128,20 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       }
     },
 
-    async join(name, avatar) {
-      return rpc('join_game', { p_name: name, p_avatar: avatar })
+    async join(name, avatar, code) {
+      return rpc('join_game', { p_name: name, p_avatar: avatar, p_code: code })
+    },
+    async reconnect(name, code) {
+      const data = await rpc<Row>('reconnect', { p_name: name, p_code: code })
+      if (data?.error) throw toGameError(new Error(data.error))
+      return { playerId: data.playerId, secret: data.secret }
+    },
+    async setCode(secret, code) {
+      await rpc('set_code', { p_secret: secret, p_code: code })
     },
     async whoami(secret) {
       const data = await rpc<Row | null>('whoami', { p_secret: secret }).catch(() => null)
-      return data ? mapPlayer(data) : null
+      return data ? { ...mapPlayer(data), hasCode: !!data.has_code } : null
     },
     async updateProfile(secret, name, avatar) {
       await rpc('update_profile', { p_secret: secret, p_name: name, p_avatar: avatar })

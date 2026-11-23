@@ -10,7 +10,11 @@ const DEMO_PIN = '0000'
 
 interface DB extends Snapshot {
   secrets: Record<string, string>
+  /** Code de reconnexion par joueur (mode démo : en clair, tout reste sur l'appareil). */
+  codes?: Record<string, string>
 }
+
+const validCode = (c: string) => /^[0-9]{4}$/.test(c)
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36))
 const now = () => new Date().toISOString()
@@ -45,7 +49,7 @@ function write(db: DB) {
 }
 
 function strip(db: DB): Snapshot {
-  const { secrets: _secrets, ...snap } = db
+  const { secrets: _secrets, codes: _codes, ...snap } = db
   return structuredClone(snap)
 }
 
@@ -85,10 +89,10 @@ export const demoBackend: Backend = {
     l.onStatus(true)
     return () => listeners.delete(l)
   },
-  async join(name, avatar) {
+  async join(name, avatar, code) {
     await delay()
     const clean = name.trim()
-    if (!clean || clean.length > 24) throw new GameError('INVALID')
+    if (!clean || clean.length > 24 || !validCode(code)) throw new GameError('INVALID')
     let session = { playerId: '', secret: '' }
     mutate((db) => {
       if (nameTaken(db, clean)) throw new GameError('NAME_TAKEN')
@@ -96,14 +100,35 @@ export const demoBackend: Backend = {
       const secret = uid()
       db.players.push({ id, name: clean, avatar, createdAt: now() })
       db.secrets[secret] = id
+      db.codes = { ...db.codes, [id]: code }
       session = { playerId: id, secret }
     })
     return session
   },
+  async reconnect(name, code) {
+    await delay()
+    const db = read()
+    const p = db.players.find((x) => x.name.toLowerCase() === name.trim().toLowerCase())
+    if (!p) throw new GameError('NOT_FOUND')
+    const expected = db.codes?.[p.id]
+    if (!expected) throw new GameError('NO_CODE')
+    if (expected !== code) throw new GameError('BAD_CODE')
+    const secret = Object.entries(db.secrets).find(([, pid]) => pid === p.id)?.[0]
+    if (!secret) throw new GameError('NOT_FOUND')
+    return { playerId: p.id, secret }
+  },
+  async setCode(secret, code) {
+    if (!validCode(code)) throw new GameError('INVALID')
+    mutate((db) => {
+      const id = playerId(db, secret)
+      db.codes = { ...db.codes, [id]: code }
+    })
+  },
   async whoami(secret) {
     const db = read()
     const id = db.secrets[secret]
-    return db.players.find((p) => p.id === id) ?? null
+    const p = db.players.find((x) => x.id === id)
+    return p ? { ...p, hasCode: !!db.codes?.[p.id] } : null
   },
   async updateProfile(secret, name, avatar) {
     mutate((db) => {
@@ -239,6 +264,7 @@ export const demoBackend: Backend = {
         db.betAnswers = db.betAnswers.filter((x) => x.playerId !== id)
         db.bingo = db.bingo.filter((x) => x.playerId !== id)
         for (const [s, pid] of Object.entries(db.secrets)) if (pid === id) delete db.secrets[s]
+        if (db.codes) delete db.codes[id]
       })
     },
     async playerSecret(p, id) {
@@ -261,6 +287,7 @@ export const demoBackend: Backend = {
         if (!keepPlayers) {
           db.players = []
           db.secrets = {}
+          db.codes = {}
         }
       })
     },

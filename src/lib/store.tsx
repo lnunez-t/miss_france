@@ -42,7 +42,11 @@ interface GameCtx {
   connectionError: string | null
   me: Player | null
   secret: string | null
-  join(name: string, avatar: string): Promise<void>
+  /** Le joueur a-t-il un code pour se reconnecter ? */
+  hasCode: boolean
+  join(name: string, avatar: string, code: string): Promise<void>
+  reconnect(name: string, code: string): Promise<void>
+  setCode(code: string): Promise<void>
   logout(): void
   updateProfile(name: string, avatar: string): Promise<void>
   savePrediction(kind: PredictionKind, payload: unknown): Promise<void>
@@ -124,6 +128,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // Vérifie que la session enregistrée correspond toujours à un joueur.
   const [meId, setMeId] = useState<string | null>(null)
+  const [hasCode, setHasCode] = useState(true)
   useEffect(() => {
     if (!secret) {
       setMeId(null)
@@ -132,8 +137,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     let alive = true
     backend.whoami(secret).then((p) => {
       if (!alive) return
-      if (p) setMeId(p.id)
-      else {
+      if (p) {
+        setMeId(p.id)
+        setHasCode(p.hasCode)
+      } else {
         writeSecret(null)
         setSecret(null)
       }
@@ -157,12 +164,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
     connectionError,
     me,
     secret,
-    async join(name, avatar) {
-      const session = await backend.join(name, avatar).catch((e) => Promise.reject(toGameError(e)))
+    hasCode,
+    async join(name, avatar, code) {
+      const session = await backend.join(name, avatar, code).catch((e) => Promise.reject(toGameError(e)))
       writeSecret(session.secret)
       setMeId(session.playerId)
+      setHasCode(true)
       setSecret(session.secret)
       await reload()
+    },
+    async reconnect(name, code) {
+      const session = await backend.reconnect(name, code).catch((e) => Promise.reject(toGameError(e)))
+      writeSecret(session.secret)
+      setMeId(session.playerId)
+      setHasCode(true)
+      setSecret(session.secret)
+      await reload()
+    },
+    async setCode(code) {
+      await backend.setCode(requireSecret(), code).catch((e) => Promise.reject(toGameError(e)))
+      setHasCode(true)
     },
     logout() {
       writeSecret(null)

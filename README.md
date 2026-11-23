@@ -46,7 +46,8 @@ Ouvre http://localhost:5173. Sans configuration Supabase, l'appli tourne en **mo
 - Dans l'appli, bouton **📣 Inviter** : partage natif du téléphone, **WhatsApp**, **SMS**, **e-mail** ou copie du lien.
 - Le lien est aussi affiché en grand sur l'**écran TV**.
 - Le lien est court (`miss-famille.vercel.app`) : il se dicte à voix haute ou s'écrit sur un papier.
-- Si quelqu'un change de téléphone : **Régie › Joueurs › 🔗** copie son lien de reconnexion personnel.
+- Si quelqu'un est déconnecté ou change de téléphone : il choisit **🔑 Déjà inscrit**, touche son prénom et tape son code secret à 4 chiffres (choisi à l'inscription, modifiable dans son profil). Après 5 codes faux, le compte est bloqué 5 minutes.
+- Code oublié : **Régie › Joueurs › 🔗** copie son lien de reconnexion personnel ; une fois reconnecté, il peut choisir un nouveau code dans son profil.
 
 ## Ajouter les photos officielles
 

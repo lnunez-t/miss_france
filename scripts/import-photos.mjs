@@ -74,7 +74,7 @@ for (const f of files) {
   if (done.has(id)) console.log(`⚠️  Deux photos pour ${id} : ${f} remplace la précédente`)
   await sharp(path.join(SRC, f))
     .rotate()
-    .resize(450, 600, { fit: 'cover', position: 'attention' })
+    .resize(450, 600, { fit: 'cover', position: 'top' })
     .webp({ quality: 80 })
     .toFile(path.join(OUT, `${id}.webp`))
   done.add(id)
