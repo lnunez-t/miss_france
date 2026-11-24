@@ -100,19 +100,6 @@ export interface BetAnswer {
   choice: string
 }
 
-export interface BingoCard {
-  playerId: string
-  /** 25 index de BINGO_ITEMS (-1 = case centrale offerte). */
-  cells: number[]
-  /** Positions cochées (0 à 24). */
-  checked: number[]
-  lines: number
-  /** Heure du 1er bingo (ligne, colonne ou diagonale), fixée par le serveur. */
-  bingoAt: string | null
-  /** Heure du carton plein. */
-  fullAt: string | null
-}
-
 export interface Snapshot {
   game: GameState
   players: Player[]
@@ -120,7 +107,6 @@ export interface Snapshot {
   ratings: Rating[]
   bets: Bet[]
   betAnswers: BetAnswer[]
-  bingo: BingoCard[]
 }
 
 export interface Session {
@@ -144,6 +130,5 @@ export function emptySnapshot(): Snapshot {
     ratings: [],
     bets: [],
     betAnswers: [],
-    bingo: [],
   }
 }
